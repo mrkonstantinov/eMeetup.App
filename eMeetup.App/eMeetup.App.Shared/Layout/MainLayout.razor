@@ -1,0 +1,53 @@
+﻿@using MudBlazor
+@inherits LayoutComponentBase
+
+@inject NavigationManager Navigation
+
+
+@* Required *@
+<MudThemeProvider />
+<MudPopoverProvider />
+
+@* Needed for dialogs *@
+<MudDialogProvider />
+
+@* Needed for snackbars *@
+<MudSnackbarProvider />
+
+
+
+<MudLayout>
+    <MudAppBar Color="Color.Primary">
+        <MudText Typo="Typo.h6">Friend always with you</MudText>
+    </MudAppBar>
+
+    <MudMainContent>
+        @Body
+    </MudMainContent>
+
+
+    <MudAppBar Bottom="true" Fixed="true" Color="Color.Primary" Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Event" @onclick="GoToEvents" />
+        <MudIconButton Icon="@Icons.Material.Filled.Book" @onclick="GoToBooks" />
+        <MudSpacer />
+        <MudIconButton Icon="@Icons.Material.Filled.Person" @onclick="GoToProfile" />
+    </MudAppBar>
+
+</MudLayout>
+
+@code {
+    private void GoToEvents()
+    {
+        Navigation.NavigateTo("/events");
+    }
+
+    private void GoToBooks()
+    {
+        Navigation.NavigateTo("/books");
+    }
+
+    private void GoToProfile()
+    {
+        Navigation.NavigateTo("/profile");
+    }
+}

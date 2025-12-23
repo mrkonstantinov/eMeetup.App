@@ -1,0 +1,204 @@
+﻿@page "/profile"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthProvider
+@inject KeycloakDummyAuthStateProvider KeycloakProvider
+
+<div class="profile-container">
+    <div class="profile-card">
+        <!-- Header -->
+        <div class="profile-header">
+            <h1 class="profile-title">
+                <span class="oi oi-person"></span> User Profile
+            </h1>
+            <p class="profile-subtitle">Your account information</p>
+        </div>
+
+        <!-- Profile Information -->
+        <div class="profile-info">
+            <!-- Basic Info Card -->
+            <div class="info-card">
+                <h3 class="info-title">
+                    <span class="oi oi-info"></span> Basic Information
+                </h3>
+
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label class="info-label">Username:</label>
+                        <span class="info-value">@userName</span>
+                    </div>
+                    <div class="info-item">
+                        <label class="info-label">Email:</label>
+                        <span class="info-value">@userEmail</span>
+                    </div>
+                    <div class="info-item">
+                        <label class="info-label">Authentication Type:</label>
+                        <span class="info-value">@authType</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Roles Card -->
+            <div class="info-card">
+                <h3 class="info-title">
+                    <span class="oi oi-lock-locked"></span> Roles & Permissions
+                </h3>
+
+                @if (userRoles.Count > 0)
+                {
+                    <div class="roles-container">
+                        @foreach (var role in userRoles)
+                        {
+                            <span class="role-badge">@role</span>
+                        }
+                    </div>
+                    <p class="roles-count">You have @userRoles.Count role(s)</p>
+                }
+                else
+                {
+                    <p class="no-roles">No roles assigned</p>
+                }
+            </div>
+
+            <!-- All Claims Card (for debugging) -->
+            <div class="info-card">
+                <h3 class="info-title">
+                    <span class="oi oi-list"></span> All Claims
+                </h3>
+
+                <div class="claims-list">
+                    @foreach (var claim in allClaims)
+                    {
+                        <div class="claim-item">
+                            <span class="claim-type">@claim.Type:</span>
+                            <span class="claim-value">@claim.Value</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Actions Card -->
+            <div class="info-card actions-card">
+                <h3 class="info-title">
+                    <span class="oi oi-cog"></span> Account Actions
+                </h3>
+
+                <div class="actions-grid">
+                    <button class="btn btn-outline-primary action-btn" @onclick="EditProfile">
+                        <span class="oi oi-pencil"></span> Edit Profile
+                    </button>
+
+                    <button class="btn btn-outline-secondary action-btn" @onclick="ChangePassword">
+                        <span class="oi oi-key"></span> Change Password
+                    </button>
+
+                    <button class="btn btn-outline-warning action-btn" @onclick="RefreshProfile">
+                        <span class="oi oi-reload"></span> Refresh
+                    </button>
+
+                    <a href="/" class="btn btn-outline-info action-btn">
+                        <span class="oi oi-home"></span> Back to Home
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug Info (visible only in debug mode) -->
+        @if (showDebugInfo)
+        {
+            <div class="debug-card">
+                <h4 class="debug-title">Debug Information</h4>
+                <div class="debug-content">
+                    <p><strong>Provider Type:</strong> @KeycloakProvider.GetType().Name</p>
+                    <p><strong>Current User Name:</strong> @KeycloakProvider.CurrentUserName</p>
+                    <p><strong>Current Email:</strong> @KeycloakProvider.CurrentUserEmail</p>
+                    <p><strong>Login Status:</strong> @KeycloakProvider.LoginStatus</p>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string userName = string.Empty;
+    private string userEmail = string.Empty;
+    private string authType = string.Empty;
+    private List<string> userRoles = new List<string>();
+    private List<Claim> allClaims = new List<Claim>();
+    private bool showDebugInfo = false;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserProfile();
+    }
+
+    private async Task LoadUserProfile()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                userName = user.Identity.Name ?? "Unknown";
+                authType = user.Identity.AuthenticationType ?? "Dummy Keycloak";
+
+                // Extract email
+                userEmail = user.FindFirst(ClaimTypes.Email)?.Value
+                          ?? user.FindFirst("email")?.Value
+                          ?? $"{userName}@example.com";
+
+                // Extract roles
+                userRoles = user.Claims
+                    .Where(c => c.Type == ClaimTypes.Role || c.Type == "role")
+                    .Select(c => c.Value)
+                    .Distinct()
+                    .ToList();
+
+                // Get all claims for display
+                allClaims = user.Claims.ToList();
+            }
+            else
+            {
+                // Redirect to login if not authenticated
+                NavigationManager.NavigateTo("/login");
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading profile: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshProfile()
+    {
+        await LoadUserProfile();
+    }
+
+    private void EditProfile()
+    {
+        // Placeholder for edit profile functionality
+        Console.WriteLine("Edit profile clicked");
+    }
+
+    private void ChangePassword()
+    {
+        // Placeholder for change password functionality
+        Console.WriteLine("Change password clicked");
+    }
+
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+}

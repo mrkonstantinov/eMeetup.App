@@ -26,9 +26,9 @@ namespace eMeetup.App
             // This is the core functionality
             builder.Services.AddAuthorizationCore();
             // This is our custom provider
-            builder.Services.AddScoped<KeycloakDummyAuthStateProvider, KeycloakDummyAuthStateProvider>();
+            builder.Services.AddSingleton<KeycloakDummyAuthStateProvider, KeycloakDummyAuthStateProvider>();
             // Use our custom provider when the app needs an AuthenticationStateProvider
-            builder.Services.AddScoped<AuthenticationStateProvider>(s
+            builder.Services.AddSingleton<AuthenticationStateProvider>(s
                 => (KeycloakDummyAuthStateProvider)s.GetRequiredService<KeycloakDummyAuthStateProvider>());
 
             return builder.Build();

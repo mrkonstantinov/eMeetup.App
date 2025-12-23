@@ -1,0 +1,150 @@
+﻿@page "/register"
+@inject KeycloakDummyAuthStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="app-header">
+            <h1 class="app-title">Create Account</h1>
+            <p class="app-subtitle">Join our application</p>
+        </div>
+
+        <EditForm Model="RegisterModel" OnValidSubmit="RegisterUser">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            
+            <!-- Success Message -->
+            <div class="alert alert-success" style="@(registrationSuccessHidden ? "display: none;" : "display: block;")">
+                <span class="oi oi-check"></span>
+                @AuthStateProvider.RegistrationMessage
+            </div>
+            
+            <!-- Error Message -->
+            <div class="alert alert-danger" style="@(registrationFailureHidden ? "display: none;" : "display: block;")">
+                <span class="oi oi-warning"></span>
+                @AuthStateProvider.RegistrationMessage
+            </div>
+
+            <!-- Email Field -->
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <InputText @bind-Value="RegisterModel.Email" 
+                          class="form-control"
+                          placeholder="your@email.com" />
+                <ValidationMessage For="@(() => RegisterModel.Email)" />
+            </div>
+            
+            <!-- Username Field -->
+            <div class="form-group">
+                <label class="form-label">Username (optional)</label>
+                <InputText @bind-Value="RegisterModel.Username" 
+                          class="form-control"
+                          placeholder="Choose a username" />
+            </div>
+            
+            <!-- Password Field -->
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <div class="password-container">
+                    <InputText @bind-Value="RegisterModel.Password" 
+                              type="@(showPassword ? "text" : "password")"
+                              class="form-control"
+                              placeholder="At least 6 characters" />
+                    <button type="button" 
+                            class="password-toggle"
+                            @onclick="TogglePasswordVisibility">
+                        <span class="oi @(showPassword ? "oi-eye-off" : "oi-eye")"></span>
+                    </button>
+                </div>
+                <ValidationMessage For="@(() => RegisterModel.Password)" />
+            </div>
+            
+            <!-- Confirm Password Field -->
+            <div class="form-group">
+                <label class="form-label">Confirm Password</label>
+                <InputText @bind-Value="RegisterModel.ConfirmPassword" 
+                          type="password"
+                          class="form-control"
+                          placeholder="Re-enter your password" />
+                <ValidationMessage For="@(() => RegisterModel.ConfirmPassword)" />
+            </div>
+
+            <!-- Register Button -->
+            <button type="submit" 
+                    class="btn btn-primary w-100 login-button"
+                    disabled="@RegisterModel.isRegistering">
+                @if (RegisterModel.isRegistering)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                    <span>Creating Account...</span>
+                }
+                else
+                {
+                    <span>Sign Up</span>
+                }
+            </button>
+        </EditForm>
+
+        <!-- Links -->
+        <div class="login-links">
+            <a href="/login" class="link">Already have an account? Sign In</a>
+        </div>
+
+        <!-- Demo Hint -->
+        <div class="demo-hint">
+            <p class="hint-title">Demo Note:</p>
+            <p class="hint-text">All registered users get the "User" role by default. Try registering with any valid email.</p>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegistrationRequest RegisterModel { get; set; } = new();
+    private bool registrationSuccessHidden = true;
+    private bool registrationFailureHidden = true;
+    private bool showPassword = false;
+
+    protected override void OnInitialized()
+    {
+        // Pre-fill for demo (optional)
+        RegisterModel.Email = "newuser@example.com";
+    }
+
+    private async Task RegisterUser()
+    {
+        // Set registering state
+        RegisterModel.isRegistering = true;
+        registrationSuccessHidden = true;
+        registrationFailureHidden = true;
+        
+        // Force UI update to show loading state
+        StateHasChanged();
+
+        // Call registration
+        var result = await AuthStateProvider.RegisterAsync(RegisterModel);
+
+        // Reset registering state
+        RegisterModel.isRegistering = false;
+        
+        if (result == RegistrationStatus.Success)
+        {
+            registrationSuccessHidden = false;
+            
+            // Auto-redirect to login after 3 seconds
+            await Task.Delay(3000);
+            Navigation.NavigateTo("/login");
+        }
+        else
+        {
+            registrationFailureHidden = false;
+        }
+        
+        // Update UI
+        StateHasChanged();
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        showPassword = !showPassword;
+    }
+}

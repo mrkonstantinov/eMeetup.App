@@ -1,51 +1,240 @@
 ﻿@page "/login"
+@using eMeetup.App.Models
 @inject NavigationManager Navigation
 @inject KeycloakDummyAuthStateProvider AuthStateProvider
 
-<h3>Login to Access Application</h3>
+<div class="login-container">
+    <div class="login-card">
+        <!-- Logo/App Name -->
+        <div class="app-header">
+            <h1 class="app-title">My MAUI App</h1>
+            <p class="app-subtitle">Sign in to continue</p>
+        </div>
 
-<EditForm Model="LoginModel" OnValidSubmit="LoginUser" FormName="login">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-    <div class="alert alert-danger" hidden="@loginFailureHidden">
-        @AuthStateProvider.LoginFailureMessage
+        <!-- Login Form -->
+        <EditForm Model="LoginModel" OnValidSubmit="HandleLogin">
+            <DataAnnotationsValidator />
+            
+            <!-- Error Message -->
+            <div class="alert alert-danger" style="@(loginFailureHidden ? "display: none;" : "display: block;")">
+                <span class="oi oi-warning"></span>
+                @AuthStateProvider.LoginFailureMessage
+            </div>
+
+            <!-- Email Field -->
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <InputText @bind-Value="LoginModel.Email" 
+                          class="form-control"
+                          placeholder="Enter your email" />
+                <ValidationMessage For="@(() => LoginModel.Email)" />
+            </div>
+
+            <!-- Password Field -->
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <div class="password-container">
+                    <InputText @bind-Value="LoginModel.Password" 
+                              type="@(showPassword ? "text" : "password")"
+                              class="form-control"
+                              placeholder="Enter your password" />
+                    <button type="button" 
+                            class="password-toggle"
+                            @onclick="TogglePasswordVisibility">
+                        <span class="oi @(showPassword ? "oi-eye-off" : "oi-eye")"></span>
+                    </button>
+                </div>
+                <ValidationMessage For="@(() => LoginModel.Password)" />
+            </div>
+
+            <!-- Remember Me (optional) -->
+            <div class="form-check">
+                <InputCheckbox @bind-Value="rememberMe" class="form-check-input" />
+                <label class="form-check-label">Remember me</label>
+            </div>
+
+            <!-- Login Button -->
+            <button type="submit" 
+                    class="btn btn-primary w-100 login-button"
+                    disabled="@isLoggingIn">
+                @if (isLoggingIn)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                    <span>Logging in...</span>
+                }
+                else
+                {
+                    <span>Sign In</span>
+                }
+            </button>
+        </EditForm>
+
+        <!-- Alternative Login Options -->
+        <div class="alternative-login">
+            <hr class="divider" />
+            <p class="divider-text">Or continue with</p>
+            
+            <!-- Real Keycloak Button (when implemented) -->
+            <button @onclick="LoginWithKeycloak" 
+                    class="btn btn-outline-secondary w-100 mb-2"
+                    disabled="@isLoggingIn">
+                <span class="oi oi-lock-locked me-2"></span>
+                Sign in with Keycloak
+            </button>
+            
+            <!-- Social Logins (example) -->
+            <div class="social-buttons">
+                <button class="btn btn-social btn-google" disabled="@isLoggingIn">
+                    <span class="social-icon">G</span>
+                    Google
+                </button>
+                <button class="btn btn-social btn-microsoft" disabled="@isLoggingIn">
+                    <span class="social-icon">M</span>
+                    Microsoft
+                </button>
+            </div>
+        </div>
+
+        <!-- Links -->
+        <div class="login-links">
+            <a href="/forgot-password" class="link">Forgot password?</a>
+            <span class="separator">•</span>
+            <a href="/register" class="link">Create account</a>
+        </div>
+
+        <!-- Demo Credentials Hint -->
+        <div class="demo-hint">
+            <p class="hint-title">Demo Credentials:</p>
+            <ul class="hint-list">
+                <li>Admin: <code>admin@example.com</code> / <code>admin123</code></li>
+                <li>User: <code>user@example.com</code> / <code>user123</code></li>
+                <li>Any registered user from registration page</li>
+            </ul>
+        </div>
     </div>
-    <div class="form-group">
-        <label>Email</label>
-        <InputText id="email" @bind-Value="LoginModel.Email" class="form-control" />
-    </div>
-    <div class="form-group">
-        <label>Password</label>
-        <InputText id="password" type="password" @bind-Value="LoginModel.Password" class="form-control" />
-    </div>
-    <div class="form-group mt-1">
-        <button type="submit" class="btn btn-primary w-100">Login Now</button>
-    </div>
-</EditForm>
+</div>
 
 @code {
-
     private LoginRequest LoginModel { get; set; } = new();
     private bool loginFailureHidden = true;
+    private bool isLoggingIn = false;
+    private bool showPassword = false;
+    private bool rememberMe = false;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        if (AuthStateProvider.LoginStatus == LoginStatus.Failed)
+        try
         {
-            loginFailureHidden = false;
+            // Pre-fill demo credentials (optional, remove in production)
+            LoginModel.Email = "user@example.com";
+            LoginModel.Password = "user123";
+            
+            // Check if already logged in
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.Identity?.IsAuthenticated == true)
+            {
+                Navigation.NavigateTo("/", forceLoad: true);
+                return;
+            }
+            
+            // Check for remembered email
+            var rememberedEmail = await SecureStorage.Default.GetAsync("remembered_email");
+            if (!string.IsNullOrEmpty(rememberedEmail))
+            {
+                LoginModel.Email = rememberedEmail;
+                rememberMe = true;
+            }
+            
+            // Check for previous failed login attempt
+            if (AuthStateProvider.LoginStatus == LoginStatus.Failed)
+            {
+                loginFailureHidden = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log error if needed
+            Console.WriteLine($"Initialization error: {ex.Message}");
         }
     }
 
-    private async Task LoginUser()
+    private async Task HandleLogin()
     {
-        await AuthStateProvider.LogInAsync(LoginModel);
-
-        if (AuthStateProvider.LoginStatus != LoginStatus.Success)
+        // Early return if already logging in
+        if (isLoggingIn)
         {
-            loginFailureHidden = false;
-            return;
+            return; // User sees spinner, no duplicate login attempts
         }
 
-        Navigation.NavigateTo(""); //Root URL
+        try
+        {
+            // Set loading state
+            isLoggingIn = true;
+            loginFailureHidden = true; // Hide any previous error messages
+            StateHasChanged(); // Update UI to show spinner immediately
+
+            var result = await AuthStateProvider.LogInAsync(LoginModel);
+
+            if (result != LoginStatus.Success)
+            {
+                loginFailureHidden = false;
+                return; // Login failed - spinner will continue unless we reset it
+            }
+
+            // Handle "Remember me" functionality
+            if (rememberMe)
+            {
+                await SecureStorage.Default.SetAsync("remembered_email", LoginModel.Email);
+            }
+            else
+            {
+                SecureStorage.Default.Remove("remembered_email");
+            }
+
+            // Get return URL from query string or use default
+            var returnUrl = GetReturnUrl() ?? "/";
+            Navigation.NavigateTo(returnUrl, forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            AuthStateProvider.LoginFailureMessage = $"Login error: {ex.Message}";
+            loginFailureHidden = false;
+        }
+        finally
+        {
+            // ALWAYS reset the loading state when done
+            isLoggingIn = false;
+            StateHasChanged(); // Update UI to hide spinner
+        }
+    }
+
+// ADD THIS HELPER METHOD to parse query string
+    private string? GetReturnUrl()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = uri.Query.TrimStart('?');
+
+        foreach (var param in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = param.Split('=');
+            if (parts.Length == 2 && parts[0].Equals("returnUrl", StringComparison.OrdinalIgnoreCase))
+            {
+                return Uri.UnescapeDataString(parts[1]);
+            }
+        }
+        return null;
+    }
+
+    private async Task LoginWithKeycloak()
+    {
+        // Just call HandleLogin with pre-set credentials
+        LoginModel.Email = "admin@example.com";
+        LoginModel.Password = "admin123";
+        await HandleLogin(); // This already shows the spinner
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        showPassword = !showPassword;
     }
 }

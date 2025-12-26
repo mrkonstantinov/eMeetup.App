@@ -4,7 +4,6 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
 @inject AuthenticationStateProvider AuthProvider
-@inject KeycloakDummyAuthStateProvider KeycloakProvider
 
 <div class="profile-container">
     <div class="profile-card">
@@ -111,10 +110,10 @@
             <div class="debug-card">
                 <h4 class="debug-title">Debug Information</h4>
                 <div class="debug-content">
-                    <p><strong>Provider Type:</strong> @KeycloakProvider.GetType().Name</p>
-                    <p><strong>Current User Name:</strong> @KeycloakProvider.CurrentUserName</p>
-                    <p><strong>Current Email:</strong> @KeycloakProvider.CurrentUserEmail</p>
-                    <p><strong>Login Status:</strong> @KeycloakProvider.LoginStatus</p>
+@*                     <p><strong>Provider Type:</strong> @AuthProvider.GetType().Name</p>
+                    <p><strong>Current User Name:</strong> @AuthProvider.CurrentUserName</p>
+                    <p><strong>Current Email:</strong> @AuthProvider.CurrentUserEmail</p>
+                    <p><strong>Login Status:</strong> @AuthProvider.LoginStatus</p> *@
                 </div>
             </div>
         }

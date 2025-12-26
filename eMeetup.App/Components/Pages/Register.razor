@@ -1,150 +1,613 @@
 ﻿@page "/register"
-@inject KeycloakDummyAuthStateProvider AuthStateProvider
+@using eMeetup.App.Models
+@using eMeetup.App.Providers
+@using System.Text.Json
+@inject ProductionAuthStateProvider AuthStateProvider
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
-<div class="login-container">
-    <div class="login-card">
+<div class="register-container">
+    <div class="register-card">
         <div class="app-header">
             <h1 class="app-title">Create Account</h1>
-            <p class="app-subtitle">Join our application</p>
+            <p class="app-subtitle">Join our community today</p>
         </div>
 
         <EditForm Model="RegisterModel" OnValidSubmit="RegisterUser">
             <DataAnnotationsValidator />
             <ValidationSummary />
-            
-            <!-- Success Message -->
+
+            <!-- Messages -->
             <div class="alert alert-success" style="@(registrationSuccessHidden ? "display: none;" : "display: block;")">
                 <span class="oi oi-check"></span>
                 @AuthStateProvider.RegistrationMessage
             </div>
-            
-            <!-- Error Message -->
+
             <div class="alert alert-danger" style="@(registrationFailureHidden ? "display: none;" : "display: block;")">
                 <span class="oi oi-warning"></span>
                 @AuthStateProvider.RegistrationMessage
             </div>
 
-            <!-- Email Field -->
-            <div class="form-group">
-                <label class="form-label">Email Address</label>
-                <InputText @bind-Value="RegisterModel.Email" 
-                          class="form-control"
-                          placeholder="your@email.com" />
-                <ValidationMessage For="@(() => RegisterModel.Email)" />
-            </div>
-            
-            <!-- Username Field -->
-            <div class="form-group">
-                <label class="form-label">Username (optional)</label>
-                <InputText @bind-Value="RegisterModel.Username" 
-                          class="form-control"
-                          placeholder="Choose a username" />
-            </div>
-            
-            <!-- Password Field -->
-            <div class="form-group">
-                <label class="form-label">Password</label>
-                <div class="password-container">
-                    <InputText @bind-Value="RegisterModel.Password" 
-                              type="@(showPassword ? "text" : "password")"
-                              class="form-control"
-                              placeholder="At least 6 characters" />
-                    <button type="button" 
-                            class="password-toggle"
-                            @onclick="TogglePasswordVisibility">
-                        <span class="oi @(showPassword ? "oi-eye-off" : "oi-eye")"></span>
-                    </button>
+            <!-- Profile Picture Upload -->
+            <div class="form-section">
+                <h3 class="section-title">Profile Picture</h3>
+
+                <div class="profile-picture-upload-container">
+                    <!-- Preview Area -->
+                    <div class="preview-area" @onclick="SelectImageFromGallery">
+                        @if (profileImagePreview != null)
+                        {
+                            <img src="@profileImagePreview" alt="Profile preview" class="preview-image" />
+                            <div class="preview-overlay">
+                                <span class="oi oi-reload"></span>
+                                <span>Change Image</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="placeholder-content">
+                                <span class="oi oi-plus upload-icon"></span>
+                                <p class="placeholder-text">Tap to select a photo</p>
+                                <p class="placeholder-subtext">JPG, PNG, or GIF • Max 5MB</p>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Image Info -->
+                    <div class="upload-info">
+                        @if (!string.IsNullOrEmpty(selectedImageName))
+                        {
+                            <div class="file-info">
+                                <span class="oi oi-file"></span>
+                                <span class="file-name">@selectedImageName</span>
+                                @if (!string.IsNullOrEmpty(imageError))
+                                {
+                                    <span class="text-danger">@imageError</span>
+                                }
+                            </div>
+                        }
+
+                        <div class="upload-actions">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="SelectImageFromGallery" disabled="@isRegistering">
+                                <span class="oi oi-image"></span> Select Photo
+                            </button>
+
+                            <button type="button" class="btn btn-outline-info btn-sm" @onclick="TakePhotoWithCamera" disabled="@isRegistering">
+                                <span class="oi oi-camera"></span> Camera
+                            </button>
+
+                            @if (profileImagePreview != null)
+                            {
+                                <button type="button" class="btn btn-outline-danger btn-sm" @onclick="RemoveImage" disabled="@isRegistering">
+                                    <span class="oi oi-trash"></span> Remove
+                                </button>
+                            }
+                        </div>
+                    </div>
                 </div>
-                <ValidationMessage For="@(() => RegisterModel.Password)" />
-            </div>
-            
-            <!-- Confirm Password Field -->
-            <div class="form-group">
-                <label class="form-label">Confirm Password</label>
-                <InputText @bind-Value="RegisterModel.ConfirmPassword" 
-                          type="password"
-                          class="form-control"
-                          placeholder="Re-enter your password" />
-                <ValidationMessage For="@(() => RegisterModel.ConfirmPassword)" />
             </div>
 
-            <!-- Register Button -->
-            <button type="submit" 
-                    class="btn btn-primary w-100 login-button"
-                    disabled="@RegisterModel.isRegistering">
-                @if (RegisterModel.isRegistering)
-                {
-                    <span class="spinner-border spinner-border-sm me-2"></span>
-                    <span>Creating Account...</span>
-                }
-                else
-                {
-                    <span>Sign Up</span>
-                }
-            </button>
+            <!-- Account Information -->
+            <div class="form-section">
+                <h3 class="section-title">Account Information</h3>
+
+                <!-- Username -->
+                <div class="form-group">
+                    <label class="form-label">Username *</label>
+                    <InputText @bind-Value="RegisterModel.Username"
+                               class="form-control"
+                               placeholder="Choose a username"
+                               disabled="@isRegistering" />
+                    <ValidationMessage For="@(() => RegisterModel.Username)" />
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label class="form-label">Email Address *</label>
+                    <InputText @bind-Value="RegisterModel.Email"
+                               class="form-control"
+                               placeholder="Enter your email"
+                               disabled="@isRegistering" />
+                    <ValidationMessage For="@(() => RegisterModel.Email)" />
+                </div>
+
+                <!-- Password -->
+                <div class="form-group">
+                    <label class="form-label">Password *</label>
+                    <InputText @bind-Value="RegisterModel.Password"
+                               type="@(showPassword ? "text" : "password")"
+                               class="form-control"
+                               placeholder="Create a password (min. 6 characters)"
+                               disabled="@isRegistering" />
+                    <div class="d-flex justify-content-end mt-1">
+                        <button type="button"
+                                class="btn btn-sm btn-link text-decoration-none"
+                                @onclick="TogglePasswordVisibility"
+                                disabled="@isRegistering">
+                            <span class="oi @(showPassword ? "oi-eye-off" : "oi-eye")"></span>
+                            @(showPassword ? "Hide" : "Show") Password
+                        </button>
+                    </div>
+                    <ValidationMessage For="@(() => RegisterModel.Password)" />
+                </div>
+
+                <!-- Confirm Password -->
+                <div class="form-group">
+                    <label class="form-label">Confirm Password *</label>
+                    <InputText @bind-Value="RegisterModel.ConfirmPassword"
+                               type="@(showConfirmPassword ? "text" : "password")"
+                               class="form-control"
+                               placeholder="Confirm your password"
+                               disabled="@isRegistering" />
+                    <div class="d-flex justify-content-end mt-1">
+                        <button type="button"
+                                class="btn btn-sm btn-link text-decoration-none"
+                                @onclick="ToggleConfirmPasswordVisibility"
+                                disabled="@isRegistering">
+                            <span class="oi @(showConfirmPassword ? "oi-eye-off" : "oi-eye")"></span>
+                            @(showConfirmPassword ? "Hide" : "Show") Password
+                        </button>
+                    </div>
+                    <ValidationMessage For="@(() => RegisterModel.ConfirmPassword)" />
+                </div>
+            </div>
+
+            <!-- Personal Information -->
+            <div class="form-section">
+                <h3 class="section-title">Personal Information</h3>
+
+                <!-- Gender -->
+                <div class="form-group">
+                    <label class="form-label">Gender *</label>
+                    <InputSelect @bind-Value="RegisterModel.Gender"
+                                 class="form-control"
+                                 disabled="@isRegistering">
+                        <option value="">Select Gender</option>
+                        <option value="@Gender.Male">Male</option>
+                        <option value="@Gender.Female">Female</option>
+                        <option value="@Gender.Other">Other</option>
+                    </InputSelect>
+                    <ValidationMessage For="@(() => RegisterModel.Gender)" />
+                </div>
+
+                <!-- Date of Birth -->
+                <div class="form-group">
+                    <label class="form-label">Date of Birth *</label>
+                    <InputDate @bind-Value="RegisterModel.DateOfBirth"
+                               class="form-control"
+                               max="@DateTime.Now.AddYears(-13).ToString("yyyy-MM-dd")"
+                               disabled="@isRegistering" />
+                    <small class="text-muted">You must be at least 13 years old</small>
+                    <ValidationMessage For="@(() => RegisterModel.DateOfBirth)" />
+                </div>
+
+                <!-- Bio -->
+                <div class="form-group">
+                    <label class="form-label">Bio</label>
+                    <InputTextArea @bind-Value="RegisterModel.Bio"
+                                   class="form-control"
+                                   rows="3"
+                                   placeholder="Tell us about yourself..."
+                                   disabled="@isRegistering" />
+                    <small class="text-muted">Max 500 characters</small>
+                </div>
+            </div>
+
+            <!-- Location Information -->
+            <div class="form-section">
+                <h3 class="section-title">Location (Optional)</h3>
+
+                <div class="alert alert-info">
+                    <span class="oi oi-info"></span>
+                    Adding your location helps us show you nearby events and meetups
+                </div>
+
+                <!-- City -->
+                <div class="form-group">
+                    <label class="form-label">City</label>
+                    <InputText @bind-Value="RegisterModel.City"
+                               class="form-control"
+                               placeholder="Your city"
+                               disabled="@isRegistering" />
+                </div>
+
+                <!-- Country -->
+                <div class="form-group">
+                    <label class="form-label">Country</label>
+                    <InputText @bind-Value="RegisterModel.Country"
+                               class="form-control"
+                               placeholder="Your country"
+                               disabled="@isRegistering" />
+                </div>
+
+                <!-- Get Location Button -->
+                <div class="form-group">
+                    <button type="button"
+                            class="btn btn-outline-primary w-100"
+                            @onclick="GetCurrentLocation"
+                            disabled="@isRegistering || isGettingLocation">
+                        @if (isGettingLocation)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <span>Getting Location...</span>
+                        }
+                        else
+                        {
+                            <span class="oi oi-map-marker"></span>
+                            <span>Use My Current Location</span>
+                        }
+                    </button>
+                    @if (hasLocation)
+                    {
+                        <div class="alert alert-success mt-2 p-2">
+                            <span class="oi oi-check"></span>
+                            Location detected: @RegisterModel.Latitude?.ToString("F4"), @RegisterModel.Longitude?.ToString("F4")
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Interests -->
+            <div class="form-section">
+                <h3 class="section-title">Interests (Optional)</h3>
+
+                <div class="form-group">
+                    <label class="form-label">Your Interests</label>
+                    <InputText @bind-Value="RegisterModel.Interests"
+                               class="form-control"
+                               placeholder="e.g., hiking, photography, coding, music..."
+                               disabled="@isRegistering" />
+                    <small class="text-muted">Separate interests with commas</small>
+                </div>
+
+                <!-- Interest Suggestions -->
+                <div class="interest-suggestions mt-3">
+                    <h6>Popular Interests:</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var interest in popularInterests)
+                        {
+                            <button type="button"
+                                    class="btn btn-sm @(selectedInterests.Contains(interest) ? "btn-primary" : "btn-outline-primary")"
+                                    @onclick="() => ToggleInterest(interest)"
+                                    disabled="@isRegistering">
+                                @interest
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Terms and Conditions -->
+            <div class="form-section">
+                <div class="form-check">
+                    <InputCheckbox @bind-Value="acceptTerms"
+                                   class="form-check-input"
+                                   id="termsCheckbox"
+                                   disabled="@isRegistering" />
+                    <label class="form-check-label" for="termsCheckbox">
+                        I agree to the <a href="/terms" class="link" target="_blank">Terms of Service</a>
+                        and <a href="/privacy" class="link" target="_blank">Privacy Policy</a> *
+                    </label>
+                </div>
+                <ValidationMessage For="@(() => acceptTerms)" />
+            </div>
+
+            <!-- Submit Button -->
+            <div class="form-section">
+                <button type="submit"
+                        class="btn btn-primary w-100 register-button"
+                        disabled="@(isRegistering || !acceptTerms)">
+                    @if (isRegistering)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        <span>Creating Account...</span>
+                    }
+                    else
+                    {
+                        <span>Create Account</span>
+                    }
+                </button>
+            </div>
         </EditForm>
 
-        <!-- Links -->
-        <div class="login-links">
-            <a href="/login" class="link">Already have an account? Sign In</a>
+        <!-- Login Link -->
+        <div class="text-center mt-4">
+            <p class="mb-0">
+                Already have an account?
+                <a href="/login" class="link" tabindex="-1">Sign In</a>
+            </p>
         </div>
 
-        <!-- Demo Hint -->
-        <div class="demo-hint">
-            <p class="hint-title">Demo Note:</p>
-            <p class="hint-text">All registered users get the "User" role by default. Try registering with any valid email.</p>
-        </div>
+        <!-- Debug Info (optional) -->
+        @if (showDebugInfo)
+        {
+            <div class="debug-info mt-4 p-3 border rounded">
+                <small class="text-muted">Debug Information:</small>
+                <pre class="mt-2">@debugInfo</pre>
+                <button class="btn btn-sm btn-outline-info mt-2" @onclick="ToggleDebugInfo">Hide Debug</button>
+            </div>
+        }
+        else
+        {
+            <div class="text-center mt-3">
+                <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleDebugInfo">
+                    <span class="oi oi-bug"></span> Show Debug Info
+                </button>
+            </div>
+        }
     </div>
 </div>
 
 @code {
     private RegistrationRequest RegisterModel { get; set; } = new();
+    private string? profileImagePreview = null;
+    private string? selectedImageName = null;
+    private string? imageError = null;
+
     private bool registrationSuccessHidden = true;
     private bool registrationFailureHidden = true;
+    private bool isRegistering = false;
     private bool showPassword = false;
+    private bool showConfirmPassword = false;
+    private bool acceptTerms = false;
+    private bool hasLocation = false;
+    private bool isGettingLocation = false;
+    private bool showDebugInfo = false;
+
+    private List<string> popularInterests = new()
+    {
+        "Hiking", "Photography", "Coding", "Music", "Travel",
+        "Cooking", "Reading", "Gaming", "Fitness", "Art",
+        "Movies", "Sports", "Dancing", "Writing", "Technology"
+    };
+
+    private List<string> selectedInterests = new();
+    private string debugInfo = string.Empty;
 
     protected override void OnInitialized()
     {
-        // Pre-fill for demo (optional)
-        RegisterModel.Email = "newuser@example.com";
+        // Set default values
+        RegisterModel.Gender = Gender.Other;
+        RegisterModel.DateOfBirth = DateTime.Now.AddYears(-18);
+
+        // Clear any existing registration state
+        AuthStateProvider.RegistrationStatus = RegistrationStatus.None;
+        AuthStateProvider.RegistrationMessage = string.Empty;
     }
 
-    private async Task RegisterUser()
+    private async Task SelectImageFromGallery()
     {
-        // Set registering state
-        RegisterModel.isRegistering = true;
-        registrationSuccessHidden = true;
-        registrationFailureHidden = true;
-        
-        // Force UI update to show loading state
+        if (isRegistering) return;
+
+        try
+        {
+            var success = await AuthStateProvider.SelectProfileImageFromGallery();
+            if (success)
+            {
+                // Create preview from selected image bytes
+                if (AuthStateProvider.SelectedProfileImage != null)
+                {
+                    var base64String = Convert.ToBase64String(AuthStateProvider.SelectedProfileImage);
+                    profileImagePreview = $"data:{AuthStateProvider.SelectedImageContentType ?? "image/jpeg"};base64,{base64String}";
+                    selectedImageName = AuthStateProvider.SelectedImageFileName;
+                    imageError = null;
+                    StateHasChanged();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            imageError = ex.Message;
+            StateHasChanged();
+        }
+    }
+
+    private async Task TakePhotoWithCamera()
+    {
+        if (isRegistering) return;
+
+        try
+        {
+            var success = await AuthStateProvider.TakeProfilePhoto();
+            if (success)
+            {
+                // Create preview from selected image bytes
+                if (AuthStateProvider.SelectedProfileImage != null)
+                {
+                    var base64String = Convert.ToBase64String(AuthStateProvider.SelectedProfileImage);
+                    profileImagePreview = $"data:{AuthStateProvider.SelectedImageContentType ?? "image/jpeg"};base64,{base64String}";
+                    selectedImageName = AuthStateProvider.SelectedImageFileName;
+                    imageError = null;
+                    StateHasChanged();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            imageError = ex.Message;
+            StateHasChanged();
+        }
+    }
+
+    private void RemoveImage()
+    {
+        if (isRegistering) return;
+
+        AuthStateProvider.ClearSelectedImage();
+        profileImagePreview = null;
+        selectedImageName = null;
+        imageError = null;
+        StateHasChanged();
+    }
+
+    private async Task GetCurrentLocation()
+    {
+        if (isRegistering || isGettingLocation) return;
+
+        isGettingLocation = true;
         StateHasChanged();
 
-        // Call registration
-        var result = await AuthStateProvider.RegisterAsync(RegisterModel);
-
-        // Reset registering state
-        RegisterModel.isRegistering = false;
-        
-        if (result == RegistrationStatus.Success)
+        try
         {
-            registrationSuccessHidden = false;
-            
-            // Auto-redirect to login after 3 seconds
-            await Task.Delay(3000);
-            Navigation.NavigateTo("/login");
+            var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
+            if (status != PermissionStatus.Granted)
+            {
+                status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+            }
+
+            if (status == PermissionStatus.Granted)
+            {
+                var location = await Geolocation.GetLocationAsync(new GeolocationRequest
+                {
+                    DesiredAccuracy = GeolocationAccuracy.Medium,
+                    Timeout = TimeSpan.FromSeconds(30)
+                });
+
+                if (location != null)
+                {
+                    RegisterModel.Latitude = location.Latitude;
+                    RegisterModel.Longitude = location.Longitude;
+                    hasLocation = true;
+
+                    // Try to get city/country from coordinates
+                    await GetCityCountryFromCoordinates(location.Latitude, location.Longitude);
+                }
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Location permission is required to use this feature.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Unable to get location: {ex.Message}");
+        }
+        finally
+        {
+            isGettingLocation = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task GetCityCountryFromCoordinates(double latitude, double longitude)
+    {
+        try
+        {
+            // You would need to implement reverse geocoding here
+            // This is a placeholder - you'd typically use a geocoding service
+            // For example: Google Maps API, OpenStreetMap, etc.
+
+            // For now, we'll leave city/country empty or use a placeholder service
+            // RegisterModel.City = result.City;
+            // RegisterModel.Country = result.Country;
+        }
+        catch
+        {
+            // Silently fail - location coordinates are still useful
+        }
+    }
+
+    private void ToggleInterest(string interest)
+    {
+        if (isRegistering) return;
+
+        if (selectedInterests.Contains(interest))
+        {
+            selectedInterests.Remove(interest);
         }
         else
         {
-            registrationFailureHidden = false;
+            selectedInterests.Add(interest);
         }
-        
-        // Update UI
+
+        // Update the interests field
+        RegisterModel.Interests = string.Join(", ", selectedInterests);
         StateHasChanged();
     }
 
     private void TogglePasswordVisibility()
     {
         showPassword = !showPassword;
+    }
+
+    private void ToggleConfirmPasswordVisibility()
+    {
+        showConfirmPassword = !showConfirmPassword;
+    }
+
+    private async Task RegisterUser()
+    {
+        if (isRegistering) return;
+
+        isRegistering = true;
+        registrationSuccessHidden = true;
+        registrationFailureHidden = true;
+
+        // Update debug info
+        UpdateDebugInfo();
+
+        StateHasChanged();
+
+        try
+        {
+            var result = await AuthStateProvider.RegisterAsync(RegisterModel);
+
+            if (result == RegistrationStatus.Success)
+            {
+                registrationSuccessHidden = false;
+                StateHasChanged();
+
+                // Wait a moment for user to see success message
+                await Task.Delay(3000);
+
+                // Redirect to login page with success parameter
+                Navigation.NavigateTo("/login?success=true", forceLoad: true);
+            }
+            else
+            {
+                registrationFailureHidden = false;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            AuthStateProvider.RegistrationMessage = $"Registration error: {ex.Message}";
+            registrationFailureHidden = false;
+            StateHasChanged();
+        }
+        finally
+        {
+            isRegistering = false;
+            StateHasChanged();
+        }
+    }
+
+    private void UpdateDebugInfo()
+    {
+        var debugData = new
+        {
+            Username = RegisterModel.Username,
+            Email = RegisterModel.Email,
+            HasPassword = !string.IsNullOrEmpty(RegisterModel.Password),
+            Gender = RegisterModel.Gender.ToString(),
+            DateOfBirth = RegisterModel.DateOfBirth.ToString("yyyy-MM-dd"),
+            HasProfileImage = AuthStateProvider.SelectedProfileImage != null,
+            ImageSize = AuthStateProvider.SelectedProfileImage?.Length ?? 0,
+            Location = RegisterModel.Latitude.HasValue ?
+                $"{RegisterModel.Latitude}, {RegisterModel.Longitude}" : "Not set",
+            Interests = RegisterModel.Interests,
+            AcceptsTerms = acceptTerms
+        };
+
+        debugInfo = JsonSerializer.Serialize(debugData, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private void ToggleDebugInfo()
+    {
+        showDebugInfo = !showDebugInfo;
+        if (showDebugInfo)
+        {
+            UpdateDebugInfo();
+        }
     }
 }

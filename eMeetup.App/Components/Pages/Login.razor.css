@@ -1,4 +1,4 @@
-﻿/* Login.razor.css - MAUI Optimized */
+﻿/* Login.razor.css */
 .login-container {
     display: flex;
     align-items: center;
@@ -11,9 +11,9 @@
 .login-card {
     background: white;
     border-radius: 20px;
-    padding: 30px;
+    padding: 40px;
     width: 100%;
-    max-width: 400px;
+    max-width: 450px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
     margin: 0 auto;
 }
@@ -25,9 +25,9 @@
 
 .app-title {
     color: #333;
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 700;
-    margin: 0 0 8px 0;
+    margin: 0 0 10px 0;
 }
 
 .app-subtitle {
@@ -62,6 +62,11 @@
         box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
 
+    .form-control:disabled {
+        background-color: #f8f9fa;
+        cursor: not-allowed;
+    }
+
 .password-container {
     position: relative;
 }
@@ -77,7 +82,59 @@
     font-size: 18px;
     padding: 5px;
     cursor: pointer;
+    transition: color 0.2s;
 }
+
+    .password-toggle:disabled {
+        color: #adb5bd;
+        cursor: not-allowed;
+    }
+
+    .password-toggle:not(:disabled):hover {
+        color: #667eea;
+    }
+
+.form-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.form-check {
+    display: flex;
+    align-items: center;
+}
+
+.form-check-input {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+    .form-check-input:disabled {
+        cursor: not-allowed;
+    }
+
+.form-check-label {
+    color: #555;
+    cursor: pointer;
+}
+
+.forgot-password {
+    text-align: right;
+}
+
+.link {
+    color: #667eea;
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.2s;
+}
+
+    .link:hover {
+        color: #764ba2;
+        text-decoration: underline;
+    }
 
 .login-button {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -89,7 +146,7 @@
     color: white;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
-    margin-top: 10px;
+    margin-bottom: 20px;
 }
 
     .login-button:disabled {
@@ -125,7 +182,6 @@
 .social-buttons {
     display: flex;
     gap: 10px;
-    margin-top: 15px;
 }
 
 .btn-social {
@@ -139,14 +195,26 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
-.btn-google:hover {
+    .btn-social:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .btn-social:not(:disabled):hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+.btn-google:not(:disabled):hover {
     border-color: #db4437;
     background: #f8f8f8;
 }
 
-.btn-microsoft:hover {
+.btn-microsoft:not(:disabled):hover {
     border-color: #00a4ef;
     background: #f8f8f8;
 }
@@ -156,79 +224,59 @@
     font-size: 16px;
 }
 
-.login-links {
+.register-link {
     text-align: center;
-    margin: 25px 0;
-}
-
-.link {
-    color: #667eea;
-    text-decoration: none;
-    font-size: 14px;
-    transition: color 0.2s;
-}
-
-    .link:hover {
-        color: #764ba2;
-        text-decoration: underline;
-    }
-
-.separator {
-    color: #ccc;
-    margin: 0 10px;
-}
-
-.demo-hint {
-    background: #f8f9fa;
-    border-radius: 10px;
-    padding: 15px;
     margin-top: 25px;
-    border-left: 4px solid #667eea;
+    padding-top: 20px;
+    border-top: 1px solid #e1e5e9;
 }
 
-.hint-title {
-    font-weight: 600;
-    color: #333;
-    margin: 0 0 10px 0;
-    font-size: 14px;
-}
-
-.hint-list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-    .hint-list li {
-        font-size: 12px;
+    .register-link p {
+        margin: 0;
         color: #666;
-        margin-bottom: 5px;
+    }
+
+.debug-info {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+    .debug-info div {
+        font-size: 12px;
         font-family: monospace;
+        margin: 2px 0;
     }
 
-    .hint-list code {
-        background: #e9ecef;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 11px;
-    }
-
-/* MAUI Platform Adjustments */
+/* Responsive Design */
 @media (max-width: 768px) {
     .login-container {
         padding: 10px;
     }
 
     .login-card {
-        padding: 20px;
+        padding: 30px 20px;
         border-radius: 15px;
     }
 
     .app-title {
-        font-size: 24px;
+        font-size: 28px;
     }
 
     .form-control {
         padding: 12px;
+    }
+
+    .social-buttons {
+        flex-direction: column;
+    }
+
+    .form-options {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .forgot-password {
+        align-self: flex-end;
     }
 }

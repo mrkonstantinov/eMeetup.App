@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Components.Authorization;
+﻿using eMeetup.App.Providers;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Logging;
 
 namespace eMeetup.App
@@ -22,14 +23,21 @@ namespace eMeetup.App
     		builder.Logging.AddDebug();
 #endif
 
+            // Register HttpClient with BaseAddress
+            builder.Services.AddScoped(sp =>
+                new HttpClient
+                {
+                    BaseAddress = new Uri("http://localhost:5000") // Change to your API URL
+                });
+
             //Register needed elements for authentication:
             // This is the core functionality
             builder.Services.AddAuthorizationCore();
             // This is our custom provider
-            builder.Services.AddSingleton<KeycloakDummyAuthStateProvider, KeycloakDummyAuthStateProvider>();
+            builder.Services.AddSingleton<ProductionAuthStateProvider, ProductionAuthStateProvider>();
             // Use our custom provider when the app needs an AuthenticationStateProvider
             builder.Services.AddSingleton<AuthenticationStateProvider>(s
-                => (KeycloakDummyAuthStateProvider)s.GetRequiredService<KeycloakDummyAuthStateProvider>());
+                => (ProductionAuthStateProvider)s.GetRequiredService<ProductionAuthStateProvider>());
 
             return builder.Build();
         }

@@ -1,66 +1,88 @@
 ﻿@page "/login"
 @using eMeetup.App.Models
+@using eMeetup.App.Providers
 @inject NavigationManager Navigation
-@inject KeycloakDummyAuthStateProvider AuthStateProvider
+@inject ProductionAuthStateProvider AuthStateProvider
 
 <div class="login-container">
     <div class="login-card">
-        <!-- Logo/App Name -->
+        <!-- Logo/App Header -->
         <div class="app-header">
-            <h1 class="app-title">My MAUI App</h1>
-            <p class="app-subtitle">Sign in to continue</p>
+            <h1 class="app-title">Welcome Back</h1>
+            <p class="app-subtitle">Sign in to your account</p>
         </div>
 
         <!-- Login Form -->
         <EditForm Model="LoginModel" OnValidSubmit="HandleLogin">
             <DataAnnotationsValidator />
-            
+            <ValidationSummary />
+
             <!-- Error Message -->
             <div class="alert alert-danger" style="@(loginFailureHidden ? "display: none;" : "display: block;")">
                 <span class="oi oi-warning"></span>
                 @AuthStateProvider.LoginFailureMessage
             </div>
 
+            <!-- Success Message (e.g., after registration) -->
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="alert alert-success">
+                    <span class="oi oi-check"></span>
+                    @successMessage
+                </div>
+            }
+
             <!-- Email Field -->
             <div class="form-group">
-                <label class="form-label">Email Address</label>
-                <InputText @bind-Value="LoginModel.Email" 
-                          class="form-control"
-                          placeholder="Enter your email" />
+                <label class="form-label">Email Address *</label>
+                <InputText @bind-Value="LoginModel.Email"
+                           class="form-control"
+                           placeholder="Enter your email"
+                           disabled="@isLoggingIn" />
                 <ValidationMessage For="@(() => LoginModel.Email)" />
             </div>
 
             <!-- Password Field -->
             <div class="form-group">
-                <label class="form-label">Password</label>
+                <label class="form-label">Password *</label>
                 <div class="password-container">
-                    <InputText @bind-Value="LoginModel.Password" 
-                              type="@(showPassword ? "text" : "password")"
-                              class="form-control"
-                              placeholder="Enter your password" />
-                    <button type="button" 
+                    <InputText @bind-Value="LoginModel.Password"
+                               type="@(showPassword ? "text" : "password")"
+                               class="form-control"
+                               placeholder="Enter your password"
+                               disabled="@isLoggingIn" />
+                    <button type="button"
                             class="password-toggle"
-                            @onclick="TogglePasswordVisibility">
+                            @onclick="TogglePasswordVisibility"
+                            disabled="@isLoggingIn">
                         <span class="oi @(showPassword ? "oi-eye-off" : "oi-eye")"></span>
                     </button>
                 </div>
                 <ValidationMessage For="@(() => LoginModel.Password)" />
             </div>
 
-            <!-- Remember Me (optional) -->
-            <div class="form-check">
-                <InputCheckbox @bind-Value="rememberMe" class="form-check-input" />
-                <label class="form-check-label">Remember me</label>
+            <!-- Remember Me & Forgot Password -->
+            <div class="form-options">
+                <div class="form-check">
+                    <InputCheckbox @bind-Value="rememberMe"
+                                   class="form-check-input"
+                                   disabled="@isLoggingIn" />
+                    <label class="form-check-label">Remember me</label>
+                </div>
+
+                <div class="forgot-password">
+                    <a href="/forgot-password" class="link" tabindex="-1">Forgot password?</a>
+                </div>
             </div>
 
             <!-- Login Button -->
-            <button type="submit" 
+            <button type="submit"
                     class="btn btn-primary w-100 login-button"
                     disabled="@isLoggingIn">
                 @if (isLoggingIn)
                 {
                     <span class="spinner-border spinner-border-sm me-2"></span>
-                    <span>Logging in...</span>
+                    <span>Signing in...</span>
                 }
                 else
                 {
@@ -73,16 +95,8 @@
         <div class="alternative-login">
             <hr class="divider" />
             <p class="divider-text">Or continue with</p>
-            
-            <!-- Real Keycloak Button (when implemented) -->
-            <button @onclick="LoginWithKeycloak" 
-                    class="btn btn-outline-secondary w-100 mb-2"
-                    disabled="@isLoggingIn">
-                <span class="oi oi-lock-locked me-2"></span>
-                Sign in with Keycloak
-            </button>
-            
-            <!-- Social Logins (example) -->
+
+            <!-- Social Logins (if implemented) -->
             <div class="social-buttons">
                 <button class="btn btn-social btn-google" disabled="@isLoggingIn">
                     <span class="social-icon">G</span>
@@ -95,22 +109,30 @@
             </div>
         </div>
 
-        <!-- Links -->
-        <div class="login-links">
-            <a href="/forgot-password" class="link">Forgot password?</a>
-            <span class="separator">•</span>
-            <a href="/register" class="link">Create account</a>
+        <!-- Registration Link -->
+        <div class="register-link">
+            <p>Don't have an account? <a href="/register" class="link" tabindex="-1">Sign up</a></p>
         </div>
 
-        <!-- Demo Credentials Hint -->
-        <div class="demo-hint">
-            <p class="hint-title">Demo Credentials:</p>
-            <ul class="hint-list">
-                <li>Admin: <code>admin@example.com</code> / <code>admin123</code></li>
-                <li>User: <code>user@example.com</code> / <code>user123</code></li>
-                <li>Any registered user from registration page</li>
-            </ul>
-        </div>
+        <!-- Debug Info (optional, remove in production) -->
+        @if (showDebugInfo)
+        {
+            <div class="debug-info mt-4 p-3 border rounded">
+                <small class="text-muted">Debug Info:</small>
+                <div>Login Status: @AuthStateProvider.LoginStatus</div>
+                <div>Is Authenticated: @isAuthenticated</div>
+                <div>Current User: @AuthStateProvider.CurrentUserName</div>
+                <button class="btn btn-sm btn-outline-info mt-2" @onclick="ToggleDebugInfo">Hide Debug</button>
+            </div>
+        }
+        else
+        {
+            <div class="text-center mt-3">
+                <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleDebugInfo">
+                    <span class="oi oi-bug"></span> Show Debug Info
+                </button>
+            </div>
+        }
     </div>
 </div>
 
@@ -120,23 +142,24 @@
     private bool isLoggingIn = false;
     private bool showPassword = false;
     private bool rememberMe = false;
+    private bool showDebugInfo = false;
+    private string successMessage = string.Empty;
+    private bool isAuthenticated = false;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            // Pre-fill demo credentials (optional, remove in production)
-            LoginModel.Email = "user@example.com";
-            LoginModel.Password = "user123";
-            
-            // Check if already logged in
+            // Check if user is already logged in
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            if (authState.User.Identity?.IsAuthenticated == true)
+            isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
+            if (isAuthenticated)
             {
+                // Already logged in, redirect to home
                 Navigation.NavigateTo("/", forceLoad: true);
                 return;
             }
-            
+
             // Check for remembered email
             var rememberedEmail = await SecureStorage.Default.GetAsync("remembered_email");
             if (!string.IsNullOrEmpty(rememberedEmail))
@@ -144,97 +167,125 @@
                 LoginModel.Email = rememberedEmail;
                 rememberMe = true;
             }
-            
-            // Check for previous failed login attempt
-            if (AuthStateProvider.LoginStatus == LoginStatus.Failed)
+
+            // Check for success message from registration
+            var successParam = Navigation.GetQueryParameter("success");
+            if (!string.IsNullOrEmpty(successParam))
+            {
+                successMessage = "Registration successful! Please sign in.";
+                await Task.Delay(5000); // Show for 5 seconds
+                successMessage = string.Empty;
+                StateHasChanged();
+            }
+
+            // Check for any pending login failure
+            if (AuthStateProvider.LoginStatus == LoginStatus.Failed &&
+                !string.IsNullOrEmpty(AuthStateProvider.LoginFailureMessage))
             {
                 loginFailureHidden = false;
             }
         }
         catch (Exception ex)
         {
-            // Log error if needed
-            Console.WriteLine($"Initialization error: {ex.Message}");
+            Console.WriteLine($"Login initialization error: {ex.Message}");
         }
     }
 
     private async Task HandleLogin()
     {
-        // Early return if already logging in
-        if (isLoggingIn)
-        {
-            return; // User sees spinner, no duplicate login attempts
-        }
+        if (isLoggingIn) return;
+
+        isLoggingIn = true;
+        loginFailureHidden = true;
+        successMessage = string.Empty;
+        StateHasChanged();
 
         try
         {
-            // Set loading state
-            isLoggingIn = true;
-            loginFailureHidden = true; // Hide any previous error messages
-            StateHasChanged(); // Update UI to show spinner immediately
-
             var result = await AuthStateProvider.LogInAsync(LoginModel);
 
-            if (result != LoginStatus.Success)
+            if (result == LoginStatus.Success)
             {
-                loginFailureHidden = false;
-                return; // Login failed - spinner will continue unless we reset it
-            }
+                // Handle "Remember me" functionality
+                if (rememberMe)
+                {
+                    await SecureStorage.Default.SetAsync("remembered_email", LoginModel.Email);
+                }
+                else
+                {
+                    SecureStorage.Default.Remove("remembered_email");
+                }
 
-            // Handle "Remember me" functionality
-            if (rememberMe)
-            {
-                await SecureStorage.Default.SetAsync("remembered_email", LoginModel.Email);
+                // Reset loading state before navigation
+                isLoggingIn = false;
+                StateHasChanged();
+
+                // Get return URL from query string or use default
+                var returnUrl = GetReturnUrl() ?? "/";
+
+                // Small delay for better UX
+                await Task.Delay(300);
+
+                Navigation.NavigateTo(returnUrl, forceLoad: true);
             }
             else
             {
-                SecureStorage.Default.Remove("remembered_email");
+                // Login failed, show error message
+                loginFailureHidden = false;
             }
-
-            // Get return URL from query string or use default
-            var returnUrl = GetReturnUrl() ?? "/";
-            Navigation.NavigateTo(returnUrl, forceLoad: true);
         }
         catch (Exception ex)
         {
-            AuthStateProvider.LoginFailureMessage = $"Login error: {ex.Message}";
+            // Set error message if provider didn't set one
+            if (string.IsNullOrEmpty(AuthStateProvider.LoginFailureMessage))
+            {
+                AuthStateProvider.LoginFailureMessage = $"Login error: {ex.Message}";
+            }
             loginFailureHidden = false;
         }
         finally
         {
-            // ALWAYS reset the loading state when done
             isLoggingIn = false;
-            StateHasChanged(); // Update UI to hide spinner
+            StateHasChanged();
         }
     }
 
-// ADD THIS HELPER METHOD to parse query string
+    // Helper method to get return URL from query string
     private string? GetReturnUrl()
     {
-        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
-        var query = uri.Query.TrimStart('?');
-
-        foreach (var param in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        try
         {
-            var parts = param.Split('=');
-            if (parts.Length == 2 && parts[0].Equals("returnUrl", StringComparison.OrdinalIgnoreCase))
-            {
-                return Uri.UnescapeDataString(parts[1]);
-            }
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            return query["returnUrl"];
         }
-        return null;
-    }
-
-    private async Task LoginWithKeycloak()
-    {
-        // Just call HandleLogin with pre-set credentials
-        LoginModel.Email = "admin@example.com";
-        LoginModel.Password = "admin123";
-        await HandleLogin(); // This already shows the spinner
+        catch
+        {
+            return null;
+        }
     }
 
     private void TogglePasswordVisibility()
     {
         showPassword = !showPassword;
+    }
+
+    private async Task<bool> IsUserAuthenticated()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        return authState.User.Identity?.IsAuthenticated == true;
+    }
+
+    private void ToggleDebugInfo()
+    {
+        showDebugInfo = !showDebugInfo;
+    }
+
+    // Quick login for testing (remove in production)
+    private async Task QuickLogin(string email, string password)
+    {
+        LoginModel.Email = email;
+        LoginModel.Password = password;
+        await HandleLogin();
     }
 }

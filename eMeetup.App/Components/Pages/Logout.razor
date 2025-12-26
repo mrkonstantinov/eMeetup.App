@@ -1,12 +1,13 @@
 ﻿@page "/logout"
+@using eMeetup.App.Providers
 @inject NavigationManager navigationManager
-@inject KeycloakDummyAuthStateProvider AuthStateProvider
+@inject ProductionAuthStateProvider AuthStateProvider
 
 <div class="loader loader-bouncing"><span>Redirecting...</span></div>
 @code {
     protected override void OnInitialized()
     {
-        AuthStateProvider.Logout();
+        AuthStateProvider.Logout().Wait();
         navigationManager.NavigateTo("/login");
     }
 }

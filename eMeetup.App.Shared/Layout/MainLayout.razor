@@ -1,0 +1,376 @@
+﻿@using eMeetup.App.Shared.Models
+@using eMeetup.App.Shared.Services
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject IAuthService AuthService
+@inject IActivityService ActivityService
+@inject NavigationManager Navigation
+
+<div Style="min-height:100vh; display:flex; flex-direction:column;">
+    <!-- Header -->
+    <header Style="background:#0078D4; color:white; padding:12px 20px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+        <div Style="display:flex; align-items:center; gap:12px;">
+            <button @onclick="ToggleDrawer" Style="background:none; border:none; color:white; font-size:24px; cursor:pointer; padding:4px 8px;">
+                ☰
+            </button>
+            <a href="/" Style="color:white; text-decoration:none; display:flex; align-items:center; gap:8px;">
+                <span Style="font-size:24px;">🏠</span>
+                <h2 Style="margin:0; font-size:1.3rem;">eMeetup</h2>
+            </a>
+        </div>
+        <div Style="display:flex; align-items:center; gap:12px;">
+            @if (_isAuthenticated)
+            {
+                <!-- Уведомления -->
+                <a href="/notifications" Style="position:relative; color:white; text-decoration:none; font-size:1.2rem;">
+                    🔔
+                    @if (_unreadCount > 0)
+                    {
+                        <span Style="position:absolute; top:-6px; right:-8px; background:#dc3545; color:white;
+                            border-radius:50%; padding:2px 6px; font-size:0.6rem; min-width:18px; text-align:center;">
+                            @(_unreadCount > 9 ? "9+" : _unreadCount.ToString())
+                        </span>
+                    }
+                </a>
+
+                <!-- Приглашения -->
+                <a href="/invitations" Style="position:relative; color:white; text-decoration:none; font-size:1.2rem;">
+                    📩
+                    @if (_pendingInvitationsCount > 0)
+                    {
+                        <span Style="position:absolute; top:-6px; right:-8px; background:#ffc107; color:#333;
+                            border-radius:50%; padding:2px 6px; font-size:0.6rem; min-width:18px; text-align:center;">
+                            @(_pendingInvitationsCount > 9 ? "9+" : _pendingInvitationsCount.ToString())
+                        </span>
+                    }
+                </a>
+
+                <!-- Профиль -->
+                <a href="/profile" Style="color:white; text-decoration:none; display:flex; align-items:center; gap:8px; font-size:0.9rem;">
+                    @if (!string.IsNullOrEmpty(_currentUser?.ProfileImageUrl))
+                    {
+                        <img src="@_currentUser.ProfileImageUrl"
+                             Style="width:32px; height:32px; border-radius:50%; object-fit:cover; border:2px solid white;" />
+                    }
+                    else
+                    {
+                        <span>👤</span>
+                    }
+                    <span class="user-name">@_currentUser?.UserName</span>
+                </a>
+
+                <!-- Выход -->
+                <button @onclick="HandleLogout"
+                        Style="background:none; border:none; color:white; cursor:pointer; font-size:18px; padding:4px 8px;"
+                        title="Выйти">
+                    🚪
+                </button>
+            }
+            else
+            {
+                <a href="/login" Style="color:white; text-decoration:none; font-size:0.9rem;">Войти</a>
+            }
+        </div>
+    </header>
+
+    <!-- Баннер: требуется заполнить профиль -->
+    @if (_isAuthenticated && _requiresProfileCompletion)
+    {
+        <div Style="background:#fff3cd; color:#856404; padding:10px 20px; text-align:center; font-size:0.9rem; border-bottom:1px solid #ffeeba;">
+            ⚠️ Ваш профиль не заполнен.
+            <a href="/complete-profile" Style="color:#0078D4; font-weight:600; text-decoration:none;">
+                Заполнить сейчас →
+            </a>
+        </div>
+    }
+
+    <!-- Body -->
+    <div Style="display:flex; flex:1;">
+        <!-- Sidebar -->
+        @if (_drawerOpen)
+        {
+            <div Style="width:280px; background:#f8f9fa; padding:20px 0; border-right:1px solid #dee2e6; min-height:100vh; overflow-y:auto; flex-shrink:0;">
+                <nav Style="display:flex; flex-direction:column; gap:2px;">
+
+                    <!-- Главное меню -->
+                    <div Style="padding:0 16px 8px 16px; border-bottom:1px solid #dee2e6; margin-bottom:8px;">
+                        <strong Style="color:#6c757d; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">📋 Меню</strong>
+                    </div>
+
+                    <a href="/" Style="color:#333; text-decoration:none; padding:10px 16px; border-radius:4px; transition:background 0.2s; display:flex; align-items:center; gap:10px; margin:0 8px;"
+                       onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='transparent'">
+                        <span>🏠</span> Главная
+                    </a>
+
+                    <a href="/calendar" Style="color:#333; text-decoration:none; padding:10px 16px; border-radius:4px; transition:background 0.2s; display:flex; align-items:center; gap:10px; margin:0 8px;"
+                       onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='transparent'">
+                        <span>📅</span> Календарь
+                    </a>
+
+                    <a href="/search" Style="color:#333; text-decoration:none; padding:10px 16px; border-radius:4px; transition:background 0.2s; display:flex; align-items:center; gap:10px; margin:0 8px;"
+                       onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='transparent'">
+                        <span>🔍</span> Поиск
+                    </a>
+
+                    @if (!_isAuthenticated)
+                    {
+                        <div Style="padding:8px 16px 8px 16px; border-top:1px solid #dee2e6; margin-top:8px;">
+                            <strong Style="color:#6c757d; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">🔐 Аккаунт</strong>
+                        </div>
+
+                        <a href="/login" Style="color:#333; text-decoration:none; padding:10px 16px; border-radius:4px; transition:background 0.2s; display:flex; align-items:center; gap:10px; margin:0 8px;"
+                           onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='transparent'">
+                            <span>🔑</span> Войти
+                        </a>
+
+                        <a href="/register" Style="color:#333; text-decoration:none; padding:10px 16px; border-radius:4px; transition:background 0.2s; display:flex; align-items:center; gap:10px; margin:0 8px;"
+                           onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='transparent'">
+                            <span>📝</span> Регистрация
+                        </a>
+                    }
+                    else
+                    {
+                        <!-- Шаблоны -->
+                        <div Style="padding:8px 16px 8px 16px; border-top:1px solid #dee2e6; margin-top:8px;">
+                            <strong Style="color:#6c757d; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">📌 Шаблоны</strong>
+                        </div>
+
+                        <a href="/create-template" Style="color:#333; text-decoration:none; padding:10px 16px; border-radius:4px; transition:background 0.2s; display:flex; align-items:center; gap:10px; margin:0 8px;"
+                           onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='transparent'">
+                            <span>📝</span> Создать шаблон
+                        </a>
+
+                        <a href="/templates" Style="color:#333; text-decoration:none; padding:10px 16px; border-radius:4px; transition:background 0.2s; display:flex; align-items:center; gap:10px; margin:0 8px;"
+                           onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='transparent'">
+                            <span>📋</span> Мои шаблоны
+                        </a>
+
+                        <!-- Встречи -->
+                        <div Style="padding:8px 16px 8px 16px; border-top:1px solid #dee2e6; margin-top:8px;">
+                            <strong Style="color:#6c757d; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">🎯 Встречи</strong>
+                        </div>
+
+                        <a href="/my-activities" Style="color:#333; text-decoration:none; padding:10px 16px; border-radius:4px; transition:background 0.2s; display:flex; align-items:center; gap:10px; margin:0 8px;"
+                           onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='transparent'">
+                            <span>📋</span> Мои встречи
+                        </a>
+
+                        <a href="/my-participations" Style="color:#333; text-decoration:none; padding:10px 16px; border-radius:4px; transition:background 0.2s; display:flex; align-items:center; gap:10px; margin:0 8px;"
+                           onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='transparent'">
+                            <span>🎯</span> Где я участвую
+                        </a>
+
+                        <!-- Социальное -->
+                        <div Style="padding:8px 16px 8px 16px; border-top:1px solid #dee2e6; margin-top:8px;">
+                            <strong Style="color:#6c757d; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">📩 Социальное</strong>
+                        </div>
+
+                        <a href="/invitations" Style="color:#333; text-decoration:none; padding:10px 16px; border-radius:4px; transition:background 0.2s; display:flex; align-items:center; gap:10px; margin:0 8px;"
+                           onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='transparent'">
+                            <span>📩</span> Приглашения
+                            @if (_pendingInvitationsCount > 0)
+                            {
+                                <span Style="background:#ffc107; color:#333; border-radius:10px; padding:1px 8px; font-size:0.7rem; margin-left:auto;">
+                                    @_pendingInvitationsCount
+                                </span>
+                            }
+                        </a>
+
+                        <a href="/notifications" Style="color:#333; text-decoration:none; padding:10px 16px; border-radius:4px; transition:background 0.2s; display:flex; align-items:center; gap:10px; margin:0 8px;"
+                           onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='transparent'">
+                            <span>🔔</span> Уведомления
+                            @if (_unreadCount > 0)
+                            {
+                                <span Style="background:#dc3545; color:white; border-radius:10px; padding:1px 8px; font-size:0.7rem; margin-left:auto;">
+                                    @_unreadCount
+                                </span>
+                            }
+                        </a>
+
+                        <!-- Интересы -->
+                        <div Style="padding:8px 16px 8px 16px; border-top:1px solid #dee2e6; margin-top:8px;">
+                            <strong Style="color:#6c757d; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">⭐ Интересы</strong>
+                        </div>
+
+                        <a href="/favorites" Style="color:#333; text-decoration:none; padding:10px 16px; border-radius:4px; transition:background 0.2s; display:flex; align-items:center; gap:10px; margin:0 8px;"
+                           onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='transparent'">
+                            <span>⭐</span> Избранное
+                        </a>
+
+                        <a href="/subscriptions" Style="color:#333; text-decoration:none; padding:10px 16px; border-radius:4px; transition:background 0.2s; display:flex; align-items:center; gap:10px; margin:0 8px;"
+                           onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='transparent'">
+                            <span>🔔</span> Подписки
+                        </a>
+
+                        <!-- Профиль -->
+                        <div Style="padding:8px 16px 8px 16px; border-top:1px solid #dee2e6; margin-top:8px;">
+                            <strong Style="color:#6c757d; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">👤 Профиль</strong>
+                        </div>
+
+                        <a href="/profile" Style="color:#333; text-decoration:none; padding:10px 16px; border-radius:4px; transition:background 0.2s; display:flex; align-items:center; gap:10px; margin:0 8px;"
+                           onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='transparent'">
+                            <span>👤</span> Мой профиль
+                        </a>
+
+                        @if (_requiresProfileCompletion)
+                        {
+                            <a href="/complete-profile" Style="color:#856404; background:#fff3cd; text-decoration:none; padding:10px 16px; border-radius:4px; display:flex; align-items:center; gap:10px; margin:0 8px; font-weight:600;">
+                                <span>⚠️</span> Заполнить профиль
+                            </a>
+                        }
+                        else
+                        {
+                            <a href="/edit-profile" Style="color:#333; text-decoration:none; padding:10px 16px; border-radius:4px; transition:background 0.2s; display:flex; align-items:center; gap:10px; margin:0 8px;"
+                               onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='transparent'">
+                                <span>✏️</span> Редактировать профиль
+                            </a>
+                        }
+                    }
+                </nav>
+            </div>
+        }
+
+        <!-- Main Content -->
+        <div Style="flex:1; padding:20px; background:#f8f9fa; min-height:80vh;">
+            @Body
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer Style="background:#f1f1f1; padding:12px 20px; text-align:center; border-top:1px solid #dee2e6; font-size:0.8rem; color:#6c757d;">
+        eMeetup © 2026 — Встречайтесь с друзьями! 🚀
+    </footer>
+</div>
+
+<style>
+    /* Адаптивность для мобильных устройств */
+    @@media (max-width: 768px) {
+        .sidebar {
+            width: 100% !important;
+            max-width: 280px;
+        }
+
+        .header-title {
+            font-size: 1rem !important;
+        }
+
+        .user-name {
+            display: none !important;
+        }
+    }
+</style>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _isAuthenticated;
+    private bool _requiresProfileCompletion;
+    private User? _currentUser;
+    private int _unreadCount;
+    private int _pendingInvitationsCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+
+            if (_isAuthenticated)
+            {
+                _currentUser = await AuthService.GetCurrentUserAsync();
+                _requiresProfileCompletion = await AuthService.RequiresProfileCompletionAsync();
+
+                // if (_currentUser != null)
+                // {
+                //     await LoadNotificationCountsAsync();
+                // }
+            }
+
+            // Подписываемся на изменения auth state
+            AuthService.AuthStateChanged += OnAuthStateChanged;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"MainLayout error: {ex.Message}");
+        }
+    }
+
+    // private async Task LoadNotificationCountsAsync()
+    // {
+    //     try
+    //     {
+    //         if (_currentUser == null) return;
+
+    //         _unreadCount = await ActivityService.GetUnreadNotificationsCountAsync(_currentUser.Id);
+    //         _pendingInvitationsCount = await ActivityService.GetPendingInvitationsCountAsync(_currentUser.Id);
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         System.Diagnostics.Debug.WriteLine($"LoadNotificationCounts error: {ex.Message}");
+    //     }
+    // }
+
+    private void OnAuthStateChanged(object? sender, EventArgs e)
+    {
+        InvokeAsync(async () =>
+        {
+            try
+            {
+                _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+
+                if (_isAuthenticated)
+                {
+                    _currentUser = await AuthService.GetCurrentUserAsync();
+                    _requiresProfileCompletion = await AuthService.RequiresProfileCompletionAsync();
+
+                    // if (_currentUser != null)
+                    // {
+                    //     await LoadNotificationCountsAsync();
+                    // }
+                }
+                else
+                {
+                    _currentUser = null;
+                    _unreadCount = 0;
+                    _pendingInvitationsCount = 0;
+                    _requiresProfileCompletion = false;
+                }
+
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"OnAuthStateChanged error: {ex.Message}");
+            }
+        });
+    }
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private async Task HandleLogout()
+    {
+        try
+        {
+            await AuthService.LogoutAsync();
+
+            _isAuthenticated = false;
+            _currentUser = null;
+            _unreadCount = 0;
+            _pendingInvitationsCount = 0;
+            _requiresProfileCompletion = false;
+
+            Navigation.NavigateTo("/login", true);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Logout error: {ex.Message}");
+        }
+    }
+
+    public void Dispose()
+    {
+        AuthService.AuthStateChanged -= OnAuthStateChanged;
+    }
+}

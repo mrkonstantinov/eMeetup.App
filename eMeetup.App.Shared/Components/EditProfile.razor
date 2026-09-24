@@ -1,0 +1,260 @@
+﻿@using eMeetup.App.Shared.Models
+@using eMeetup.App.Shared.Services
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+@if (_isLoading)
+{
+    <div Style="text-align:center; padding:40px;">
+        <p>⏳ Загрузка...</p>
+    </div>
+}
+else if (_user == null)
+{
+    <div Style="padding:12px; background:#fff3cd; color:#856404; border-radius:4px; border:1px solid #ffeeba;">
+        ⚠️ Пожалуйста, <a href="/login" Style="color:#0078D4;">войдите</a> для редактирования профиля
+    </div>
+}
+else
+{
+    <div Style="max-width:600px; margin:0 auto; background:white; padding:24px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+        <h3>✏️ Редактировать профиль</h3>
+
+        @if (!string.IsNullOrEmpty(_successMessage))
+        {
+            <div Style="padding:12px; background:#d4edda; color:#155724; border-radius:4px; border:1px solid #c3e6cb; margin-bottom:16px;">
+                ✅ @_successMessage
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div Style="padding:12px; background:#f8d7da; color:#721c24; border-radius:4px; border:1px solid #f5c6cb; margin-bottom:16px;">
+                ❌ @_errorMessage
+            </div>
+        }
+
+        <div Style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+            <div>
+                <label Style="display:block; margin-bottom:4px; font-weight:500;">Имя</label>
+                <input @bind="_user.FirstName" Style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px;" />
+            </div>
+            <div>
+                <label Style="display:block; margin-bottom:4px; font-weight:500;">Фамилия</label>
+                <input @bind="_user.LastName" Style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px;" />
+            </div>
+        </div>
+
+        <div Style="margin-bottom:16px;">
+            <label Style="display:block; margin-bottom:4px; font-weight:500;">Дата рождения</label>
+            <input @bind="_user.DateOfBirth" type="date" Style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px;" />
+        </div>
+
+        <div Style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+            <div>
+                <label Style="display:block; margin-bottom:4px; font-weight:500;">Пол</label>
+                <select @bind="_user.Gender" Style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px;">
+                    <option value="">Не указан</option>
+                    <option value="Male">Мужской</option>
+                    <option value="Female">Женский</option>
+                    <option value="Other">Другой</option>
+                </select>
+            </div>
+            <div>
+                <label Style="display:block; margin-bottom:4px; font-weight:500;">Город</label>
+                <input @bind="_user.City" Style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px;" placeholder="Ваш город" />
+            </div>
+        </div>
+
+        <div Style="margin-bottom:16px;">
+            <label Style="display:block; margin-bottom:4px; font-weight:500;">Телефон</label>
+            <input @bind="_user.Phone" Style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px;" placeholder="+7 (999) 123-45-67" />
+        </div>
+
+        <div Style="margin-bottom:16px;">
+            <label Style="display:block; margin-bottom:4px; font-weight:500;">О себе</label>
+            <textarea @bind="_user.Bio" Style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px; min-height:80px;"
+                      placeholder="Расскажите о себе, чем увлекаетесь, что ищете..."></textarea>
+        </div>
+
+        <div Style="margin-bottom:16px;">
+            <label Style="display:block; margin-bottom:4px; font-weight:500;">Интересы (через запятую)</label>
+            <div Style="display:flex; gap:8px;">
+                <input @bind="_interestsInput" Style="flex:1; padding:8px; border:1px solid #ced4da; border-radius:4px;"
+                       placeholder="велоспорт, походы, фотография" />
+                <button @onclick="AddInterest" Style="padding:8px 16px; background:#0078D4; color:white; border:none; border-radius:4px; cursor:pointer;">
+                    Добавить
+                </button>
+            </div>
+            @if (_user.Interests.Any())
+            {
+                <div Style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+                    @foreach (var interest in _user.Interests)
+                    {
+                        <span Style="display:inline-block; padding:4px 12px; background:#e9ecef; border-radius:20px; font-size:0.85rem;">
+                            #@interest
+                            <button @onclick="() => RemoveInterest(interest)" Style="background:none; border:none; cursor:pointer; margin-left:4px; color:#dc3545;">×</button>
+                        </span>
+                    }
+                </div>
+            }
+        </div>
+
+        <div Style="margin-bottom:16px;">
+            <label Style="display:block; margin-bottom:4px; font-weight:500;">Теги (через запятую)</label>
+            <div Style="display:flex; gap:8px;">
+                <input @bind="_tagsInput" Style="flex:1; padding:8px; border:1px solid #ced4da; border-radius:4px;"
+                       placeholder="активный, спорт, природа" />
+                <button @onclick="AddTag" Style="padding:8px 16px; background:#0078D4; color:white; border:none; border-radius:4px; cursor:pointer;">
+                    Добавить
+                </button>
+            </div>
+            @if (_user.Tags.Any())
+            {
+                <div Style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+                    @foreach (var tag in _user.Tags)
+                    {
+                        <span Style="display:inline-block; padding:4px 12px; background:#0078D4; color:white; border-radius:20px; font-size:0.85rem;">
+                            #@tag
+                            <button @onclick="() => RemoveTag(tag)" Style="background:none; border:none; cursor:pointer; margin-left:4px; color:white;">×</button>
+                        </span>
+                    }
+                </div>
+            }
+        </div>
+
+        <div Style="margin-bottom:16px;">
+            <label Style="display:block; margin-bottom:4px; font-weight:500;">URL аватара</label>
+            <input @bind="_user.AvatarUrl" Style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px;" placeholder="https://example.com/avatar.jpg" />
+        </div>
+
+        <div Style="margin-bottom:16px; display:flex; align-items:center; gap:12px;">
+            <input @bind="_user.IsPublicProfile" type="checkbox" Style="width:18px; height:18px;" />
+            <label Style="font-weight:500;">Публичный профиль</label>
+        </div>
+
+        <div Style="display:flex; gap:12px;">
+            <button @onclick="HandleSave" disabled="@_isSaving" Style="flex:1; padding:10px; background:#0078D4; color:white; border:none; border-radius:4px; cursor:pointer; font-size:16px;">
+                @if (_isSaving)
+                {
+                    <span>⏳ Сохранение...</span>
+                }
+                else
+                {
+                    <span>💾 Сохранить</span>
+                }
+            </button>
+            <a href="/profile" Style="display:inline-block; padding:10px 20px; border:1px solid #6c757d; color:#6c757d; border-radius:4px; text-decoration:none;">
+                Отмена
+            </a>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private User? _user;
+    private string? _errorMessage;
+    private string? _successMessage;
+    private string _interestsInput = string.Empty;
+    private string _tagsInput = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _user = await AuthService.GetCurrentUserAsync();
+            if (_user != null)
+            {
+                _interestsInput = string.Join(", ", _user.Interests);
+                _tagsInput = string.Join(", ", _user.Tags);
+            }
+        }
+        catch
+        {
+            _errorMessage = "Ошибка загрузки профиля";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void AddInterest()
+    {
+        var interests = _interestsInput.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                       .Select(i => i.Trim())
+                                       .Where(i => !string.IsNullOrWhiteSpace(i));
+        foreach (var interest in interests)
+        {
+            if (!_user!.Interests.Contains(interest))
+            {
+                _user.Interests.Add(interest);
+            }
+        }
+        _interestsInput = string.Empty;
+        StateHasChanged();
+    }
+
+    private void RemoveInterest(string interest)
+    {
+        _user!.Interests.Remove(interest);
+        StateHasChanged();
+    }
+
+    private void AddTag()
+    {
+        var tags = _tagsInput.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                             .Select(t => t.Trim())
+                             .Where(t => !string.IsNullOrWhiteSpace(t));
+        foreach (var tag in tags)
+        {
+            if (!_user!.Tags.Contains(tag))
+            {
+                _user.Tags.Add(tag);
+            }
+        }
+        _tagsInput = string.Empty;
+        StateHasChanged();
+    }
+
+    private void RemoveTag(string tag)
+    {
+        _user!.Tags.Remove(tag);
+        StateHasChanged();
+    }
+
+    private async Task HandleSave()
+    {
+        _isSaving = true;
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            // Добавляем интересы и теги из текстовых полей
+            AddInterest();
+            AddTag();
+
+            var result = await AuthService.UpdateProfileAsync(_user!);
+            if (result)
+            {
+                _successMessage = "✅ Профиль успешно обновлен!";
+                await Task.Delay(1500);
+                Navigation.NavigateTo("/profile", true);
+            }
+            else
+            {
+                _errorMessage = "❌ Ошибка при обновлении профиля";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"⚠️ Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

@@ -1,0 +1,8 @@
+﻿@page "/template/{id:int}/add-schedule"
+@using eMeetup.App.Shared.Components
+
+<AddSchedule TemplateId="@id" />
+
+@code {
+    [Parameter] public int id { get; set; }
+}

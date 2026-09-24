@@ -1,0 +1,218 @@
+﻿@page "/template/{id:int}"
+@using eMeetup.App.Shared.Models
+@using eMeetup.App.Shared.Services
+@using eMeetup.App.Shared.Components
+@inject IActivityService ActivityService
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+@if (_isLoading)
+{
+    <div Style="text-align:center; padding:40px;">
+        <p>⏳ Загрузка...</p>
+    </div>
+}
+else if (_template == null)
+{
+    <div Style="padding:12px; background:#f8d7da; color:#721c24; border-radius:4px; border:1px solid #f5c6cb;">
+        ❌ Шаблон не найден
+    </div>
+}
+else
+{
+    <div Style="max-width:800px; margin:0 auto;">
+        <!-- Информация о шаблоне -->
+        <div Style="background:white; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:hidden; margin-bottom:20px;">
+            @if (!string.IsNullOrEmpty(_template.ImageUrl))
+            {
+                <img src="@_template.ImageUrl" Style="width:100%; height:200px; object-fit:cover;" />
+            }
+
+            <div Style="padding:24px;">
+                <div Style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div>
+                        <h3 Style="margin:0;">@_template.Title</h3>
+                        <span Style="display:inline-block; padding:2px 12px; background:#0078D4; color:white; border-radius:4px; font-size:0.8rem; margin-top:8px;">
+                            @_template.Type.ToString()
+                        </span>
+                    </div>
+                    @if (_isOrganizer)
+                    {
+                        <div Style="display:flex; gap:8px;">
+                            <a href="/template/@_template.Id/add-schedule" Style="display:inline-block; padding:6px 16px; background:#28a745; color:white; border-radius:4px; text-decoration:none; font-size:0.9rem;">
+                                📅 Добавить встречу
+                            </a>
+                            <a href="/edit-template/@_template.Id" Style="display:inline-block; padding:6px 16px; background:#ffc107; color:#333; border-radius:4px; text-decoration:none; font-size:0.9rem;">
+                                ✏️ Редактировать
+                            </a>
+                            <button @onclick="DeleteTemplate" Style="padding:6px 16px; background:#dc3545; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.9rem;">
+                                🗑️ Удалить
+                            </button>
+                        </div>
+                    }
+                </div>
+
+                @if (_template.Tags.Any())
+                {
+                    <div Style="display:flex; flex-wrap:wrap; gap:4px; margin:12px 0;">
+                        @foreach (var tag in _template.Tags)
+                        {
+                            <span Style="display:inline-block; padding:4px 12px; background:#0078D4; color:white; border-radius:20px; font-size:0.8rem;">
+                                #@tag
+                            </span>
+                        }
+                    </div>
+                }
+
+                <p Style="margin:12px 0;">@_template.Description</p>
+
+                <div Style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;">
+                    <div><strong>📍</strong> @_template.Location</div>
+                    <div><strong>👥</strong> Макс. @_template.MaxParticipants участников</div>
+                    @if (!string.IsNullOrEmpty(_template.Difficulty))
+                    {
+                        <div><strong>📊</strong> @_template.Difficulty</div>
+                    }
+                    @if (_template.AgeRestriction.HasValue && _template.AgeRestriction.Value > 0)
+                    {
+                        <div><strong>🔞</strong> От @_template.AgeRestriction.Value лет</div>
+                    }
+                    <div><strong>🐕</strong> @(_template.IsPetFriendly ? "Разрешено" : "Не разрешено")</div>
+                    <div><strong>👨‍👩‍👧‍👦</strong> @(_template.IsFamilyFriendly ? "Семейное" : "Не семейное")</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Расписание -->
+        <div Style="background:white; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:hidden;">
+            <div Style="padding:16px 24px; background:#f8f9fa; border-bottom:1px solid #dee2e6; display:flex; justify-content:space-between; align-items:center;">
+                <h4 Style="margin:0;">📅 Расписание встреч</h4>
+                @if (_isOrganizer)
+                {
+                    <a href="/template/@_template.Id/add-schedule" Style="display:inline-block; padding:6px 16px; background:#0078D4; color:white; border-radius:4px; text-decoration:none;">
+                        ➕ Добавить
+                    </a>
+                }
+            </div>
+
+            <div Style="padding:16px;">
+                @if (!_instances.Any())
+                {
+                    <div Style="text-align:center; padding:20px; color:#6c757d;">
+                        <p>📭 Пока нет запланированных встреч</p>
+                        @if (_isOrganizer)
+                        {
+                            <a href="/template/@_template.Id/add-schedule" Style="display:inline-block; padding:8px 16px; background:#0078D4; color:white; border-radius:4px; text-decoration:none; margin-top:8px;">
+                                ➕ Добавить встречу
+                            </a>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div Style="display:grid; gap:12px;">
+                        @foreach (var instance in _instances.OrderBy(i => i.StartTime))
+                        {
+                            <div Style="border:1px solid #dee2e6; border-radius:8px; padding:16px; display:flex; justify-content:space-between; align-items:center; @(instance.Status == "Cancelled" ? "background:#f8f9fa; opacity:0.7;" : "")">
+                                <div>
+                                    <div Style="display:flex; align-items:center; gap:8px;">
+                                        <strong>@instance.StartTime.ToString("dd.MM.yyyy")</strong>
+                                        <span Style="color:#6c757d;">@instance.StartTime.ToString("HH:mm") - @instance.EndTime.ToString("HH:mm")</span>
+                                    </div>
+                                    <div Style="font-size:0.85rem; color:#6c757d;">
+                                        👥 @instance.CurrentParticipants / @(instance.MaxParticipants ?? _template.MaxParticipants)
+                                        @if (!string.IsNullOrEmpty(instance.Location) && instance.Location != _template.Location)
+                                        {
+                                            <span> | 📍 @instance.Location</span>
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(instance.Notes))
+                                    {
+                                        <div Style="font-size:0.85rem; color:#6c757d; margin-top:4px;">
+                                            📝 @instance.Notes
+                                        </div>
+                                    }
+                                    @if (instance.Status == "Cancelled")
+                                    {
+                                        <div Style="font-size:0.85rem; color:#dc3545;">❌ Отменена</div>
+                                    }
+                                </div>
+                                <div Style="display:flex; gap:8px;">
+                                    @if (instance.Status != "Cancelled")
+                                    {
+                                        <a href="/activity-instance/@instance.Id" Style="display:inline-block; padding:6px 12px; background:#0078D4; color:white; border-radius:4px; text-decoration:none; font-size:0.85rem;">
+                                            📋 Подробнее
+                                        </a>
+                                        @if (_isOrganizer)
+                                        {
+                                            <button @onclick="() => CancelInstance(instance.Id)" Style="padding:6px 12px; background:#dc3545; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.85rem;">
+                                                ❌ Отменить
+                                            </button>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool _isLoading = true;
+    private bool _isOrganizer;
+    private ActivityTemplate? _template;
+    private List<ActivityInstance> _instances = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var user = await AuthService.GetCurrentUserAsync();
+            _template = await ActivityService.GetTemplateAsync(Id);
+
+            if (_template != null)
+            {
+                _isOrganizer = user != null && user.Id == _template.OrganizerId;
+                _instances = await ActivityService.GetTemplateInstancesAsync(Id);
+            }
+        }
+        catch
+        {
+            // Обработка ошибок
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task CancelInstance(int instanceId)
+    {
+        var result = await ActivityService.CancelInstanceAsync(instanceId, "Отменено организатором");
+        if (result)
+        {
+            _instances = await ActivityService.GetTemplateInstancesAsync(Id);
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteTemplate()
+    {
+        if (await ConfirmDelete())
+        {
+            await ActivityService.DeleteTemplateAsync(Id);
+            Navigation.NavigateTo("/", true);
+        }
+    }
+
+    private async Task<bool> ConfirmDelete()
+    {
+        // В реальном проекте используйте модальное окно
+        return await Task.FromResult(true);
+    }
+}

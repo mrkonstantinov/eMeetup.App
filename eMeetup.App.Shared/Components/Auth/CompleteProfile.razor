@@ -1,0 +1,261 @@
+﻿@using eMeetup.App.Shared.Models.Api
+@using eMeetup.App.Shared.Models.Auth
+@using eMeetup.App.Shared.Services
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<div Style="max-width: 600px; margin: 0 auto; padding: 24px;">
+    <div Style="background:white; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); padding:32px;">
+        <div Style="text-align:center; margin-bottom:24px;">
+            <div Style="font-size:48px;">👤</div>
+            <h3 Style="margin:8px 0 0 0;">Заполните профиль</h3>
+            <p Style="color:#6c757d; margin:4px 0 0 0;">
+                Это поможет найти единомышленников
+            </p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div Style="padding:12px; background:#f8d7da; color:#721c24; border-radius:4px; margin-bottom:16px;">
+                ❌ @_errorMessage
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(_successMessage))
+        {
+            <div Style="padding:12px; background:#d4edda; color:#155724; border-radius:4px; margin-bottom:16px;">
+                ✅ @_successMessage
+            </div>
+        }
+
+        <!-- Аватар -->
+        <div Style="margin-bottom:16px;">
+            <label Style="display:block; margin-bottom:4px; font-weight:500;">URL аватара</label>
+            <input @bind="_model.AvatarUrl"
+                   Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px;"
+                   placeholder="https://example.com/avatar.jpg" />
+            @if (!string.IsNullOrEmpty(_model.AvatarUrl))
+            {
+                <div Style="margin-top:8px;">
+                    <img src="@_model.AvatarUrl"
+                         Style="width:64px; height:64px; border-radius:50%; object-fit:cover;"
+                         onerror="this.style.display='none'" />
+                </div>
+            }
+        </div>
+
+        <!-- О себе -->
+        <div Style="margin-bottom:16px;">
+            <label Style="display:block; margin-bottom:4px; font-weight:500;">О себе *</label>
+            <textarea @bind="_model.Bio"
+                      Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px; min-height:80px;"
+                      placeholder="Расскажите о себе, чем увлекаетесь..."></textarea>
+        </div>
+
+        <!-- Дата рождения и пол -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+            <div>
+                <label Style="display:block; margin-bottom:4px; font-weight:500;">Дата рождения *</label>
+                <input type="date"
+                       value="@(_model.DateOfBirth?.ToString("yyyy-MM-dd"))"
+                       @onchange="OnDateOfBirthChanged"
+                       Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px;" />
+            </div>
+            <div>
+                <label Style="display:block; margin-bottom:4px; font-weight:500;">Пол</label>
+                <select @bind="_model.Gender" Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px;">
+                    <option value="">Не указан</option>
+                    <option value="Male">Мужской</option>
+                    <option value="Female">Женский</option>
+                    <option value="Other">Другой</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Контакты -->
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:16px;">
+            <div>
+                <label Style="display:block; margin-bottom:4px; font-weight:500;">Телефон</label>
+                <input @bind="_model.Phone"
+                       Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px;"
+                       placeholder="+79001234567" />
+            </div>
+            <div>
+                <label Style="display:block; margin-bottom:4px; font-weight:500;">Telegram</label>
+                <input @bind="_model.Telegram"
+                       Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px;"
+                       placeholder="@@john_doe" />
+            </div>
+            <div>
+                <label Style="display:block; margin-bottom:4px; font-weight:500;">Instagram</label>
+                <input @bind="_model.Instagram"
+                       Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px;"
+                       placeholder="@@john_doe" />
+            </div>
+        </div>
+
+        <!-- Локация -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+            <div>
+                <label Style="display:block; margin-bottom:4px; font-weight:500;">Город *</label>
+                <input @bind="_model.City"
+                       Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px;"
+                       placeholder="Москва" />
+            </div>
+            <div>
+                <label Style="display:block; margin-bottom:4px; font-weight:500;">Страна</label>
+                <input @bind="_model.Country"
+                       Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px;"
+                       placeholder="Россия" />
+            </div>
+        </div>
+
+        <!-- Геолокация (опционально) -->
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:16px;">
+            <div>
+                <label Style="display:block; margin-bottom:4px; font-weight:500;">Широта</label>
+                <input type="number" step="0.0001" @bind="_model.Latitude"
+                       Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px;"
+                       placeholder="55.7558" />
+            </div>
+            <div>
+                <label Style="display:block; margin-bottom:4px; font-weight:500;">Долгота</label>
+                <input type="number" step="0.0001" @bind="_model.Longitude"
+                       Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px;"
+                       placeholder="37.6173" />
+            </div>
+            <div>
+                <label Style="display:block; margin-bottom:4px; font-weight:500;">Часовой пояс</label>
+                <input @bind="_model.TimeZone"
+                       Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px;"
+                       placeholder="Europe/Moscow" />
+            </div>
+        </div>
+
+        <!-- Языки -->
+        <div Style="margin-bottom:16px;">
+            <label Style="display:block; margin-bottom:4px; font-weight:500;">Языки</label>
+            <input @bind="_languagesInput"
+                   Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px;"
+                   placeholder="ru,en" />
+            <div Style="font-size:0.8rem; color:#6c757d; margin-top:4px;">
+                💡 Укажите через запятую: ru,en
+            </div>
+        </div>
+
+        <!-- Интересы -->
+        <div Style="margin-bottom:24px;">
+            <label Style="display:block; margin-bottom:4px; font-weight:500;">Интересы</label>
+            <input @bind="_interestsInput"
+                   Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px;"
+                   placeholder="футбол,музыка,путешествия,походы" />
+            <div Style="font-size:0.8rem; color:#6c757d; margin-top:4px;">
+                💡 Укажите через запятую
+            </div>
+
+            @if (_interestsList.Any())
+            {
+                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+                    @foreach (var interest in _interestsList)
+                    {
+                        <span style="display:inline-block; padding:4px 12px; background:#0078D4; color:white; border-radius:20px; font-size:0.85rem;">
+                            #@interest
+                        </span>
+                    }
+                </div>
+            }
+        </div>
+
+        <button @onclick="HandleSubmit" disabled="@_isLoading"
+                Style="width:100%; padding:12px; background:#0078D4; color:white; border:none; border-radius:4px; cursor:pointer; font-size:16px; font-weight:500;">
+            @if (_isLoading)
+            {
+                <span>⏳ Сохранение...</span>
+            }
+            else
+            {
+                <span>✅ Сохранить профиль</span>
+            }
+        </button>
+    </div>
+</div>
+
+@code {
+    private CompleteProfileRequest _model = new();
+    private string _languagesInput = "ru,en";
+    private string _interestsInput = string.Empty;
+    private List<string> _interestsList = new();
+    private string? _errorMessage;
+    private string? _successMessage;
+    private bool _isLoading;
+
+    private void OnDateOfBirthChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        if (string.IsNullOrEmpty(value))
+        {
+            _model.DateOfBirth = null;
+        }
+        else if (DateTime.TryParse(value, out var date))
+        {
+            _model.DateOfBirth = DateTime.SpecifyKind(date, DateTimeKind.Utc);
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        // Валидация
+        if (string.IsNullOrWhiteSpace(_model.Bio))
+        {
+            _errorMessage = "Заполните поле 'О себе'";
+            return;
+        }
+        if (!_model.DateOfBirth.HasValue)
+        {
+            _errorMessage = "Укажите дату рождения";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_model.City))
+        {
+            _errorMessage = "Укажите город";
+            return;
+        }
+
+        // Подготавливаем данные
+        _model.Languages = string.IsNullOrWhiteSpace(_languagesInput) ? null : _languagesInput;
+        _model.Interests = string.IsNullOrWhiteSpace(_interestsInput) ? null : _interestsInput;
+
+        _isLoading = true;
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            var result = await AuthService.CompleteProfileAsync(_model);
+
+            if (result)
+            {
+                _successMessage = "✅ Профиль сохранён!";
+                await Task.Delay(1000);
+                Navigation.NavigateTo("/", true);
+            }
+            else
+            {
+                _errorMessage = "Не удалось сохранить профиль. Проверьте данные.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        // Обновляем список интересов при вводе
+        _interestsInput = string.Empty;
+    }
+}

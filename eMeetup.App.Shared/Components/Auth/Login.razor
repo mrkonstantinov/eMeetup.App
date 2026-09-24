@@ -1,0 +1,107 @@
+﻿@using eMeetup.App.Shared.Models.Auth
+@using eMeetup.App.Shared.Services
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<div Style="max-width: 480px; margin: 0 auto; padding-top: 40px;">
+    <div Style="background:white; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); padding:32px;">
+        <div Style="text-align:center; margin-bottom:24px;">
+            <div Style="font-size:48px;">🏠</div>
+            <h3 Style="margin:8px 0 0 0;">eMeetup</h3>
+            <p Style="color: var(--neutral-fill-strong); margin:4px 0 0 0;">
+                Войдите в свой аккаунт
+            </p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div Style="padding:12px; background:#f8d7da; color:#721c24; border-radius:4px; border:1px solid #f5c6cb; margin-bottom:16px;">
+                ❌ @_errorMessage
+            </div>
+        }
+
+        <div Style="margin-bottom:16px;">
+            <label Style="display:block; margin-bottom:4px; font-weight:500;">Имя пользователя</label>
+            <input @bind="_request.Username"
+                   Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px; font-size:14px;"
+                   placeholder="Введите имя пользователя" />
+        </div>
+
+        <div Style="margin-bottom:16px;">
+            <label Style="display:block; margin-bottom:4px; font-weight:500;">Пароль</label>
+            <input @bind="_request.Password"
+                   type="password"
+                   Style="width:100%; padding:10px; border:1px solid #ced4da; border-radius:4px; font-size:14px;"
+                   placeholder="Введите пароль" />
+        </div>
+
+        <div Style="margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" @bind="_request.RememberMe" Style="width:18px; height:18px;" />
+            <label Style="margin:0;">Запомнить меня</label>
+        </div>
+
+        <button @onclick="HandleLogin" disabled="@_isLoading"
+                Style="width:100%; padding:12px; background:#0078D4; color:white; border:none; border-radius:4px; cursor:pointer; font-size:16px; font-weight:500;">
+            @if (_isLoading)
+            {
+                <span>⏳ Вход...</span>
+            }
+            else
+            {
+                <span>🔑 Войти</span>
+            }
+        </button>
+
+        <hr Style="margin:20px 0; border:none; border-top:1px solid #dee2e6;" />
+
+        <p Style="text-align:center; margin:0;">
+            Нет аккаунта?
+            <a href="/register" Style="color:#0078D4; text-decoration:none;">Зарегистрироваться</a>
+        </p>
+
+        <p Style="text-align:center; margin:8px 0 0 0; font-size:0.8rem; color:#6c757d;">
+            📱 Демо: <strong>demo</strong> / <strong>demo123</strong>
+        </p>
+    </div>
+</div>
+
+@code {
+    private LoginRequest _request = new();
+    private string? _errorMessage;
+    private bool _isLoading;
+
+    private async Task HandleLogin()
+    {
+        if (string.IsNullOrWhiteSpace(_request.Username) ||
+            string.IsNullOrWhiteSpace(_request.Password))
+        {
+            _errorMessage = "Заполните все поля";
+            return;
+        }
+
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            var result = await AuthService.LoginAsync(_request);
+
+            if (result.Success)
+            {
+                Navigation.NavigateTo("/", true);
+            }
+            else
+            {
+                _errorMessage = result.Error ?? "Ошибка входа";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

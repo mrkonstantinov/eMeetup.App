@@ -1,0 +1,37 @@
+﻿@page "/complete-profile"
+@using eMeetup.App.Shared.Components.Auth
+@using eMeetup.App.Shared.Services
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+@if (_isChecking)
+{
+    <div style="text-align:center; padding:40px;">
+        <p>⏳ Проверка...</p>
+    </div>
+}
+else if (!_isAuthenticated)
+{
+    Navigation.NavigateTo("/login");
+}
+else
+{
+    <CompleteProfile />
+}
+
+@code {
+    private bool _isChecking = true;
+    private bool _isAuthenticated;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        }
+        finally
+        {
+            _isChecking = false;
+        }
+    }
+}

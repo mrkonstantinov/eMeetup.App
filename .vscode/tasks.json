@@ -1,0 +1,32 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "maui: Build",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/eMeetup.App/eMeetup.App.csproj",
+                "-f:net10.0-android",
+                "--no-restore"
+            ],
+            "group": "build",
+            "problemMatcher": ["$msCompile"]
+        },
+        {
+            "label": "maui: Run with Debugger",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "${workspaceFolder}/eMeetup.App/eMeetup.App.csproj",
+                "-f:net10.0-android",
+                "-t:Run",
+                "-p:AndroidAttachDebugger=true"
+            ],
+            "group": "test",
+            "problemMatcher": ["$msCompile"]
+        }
+    ]
+}

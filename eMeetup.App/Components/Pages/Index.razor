@@ -1,0 +1,34 @@
+﻿@page "/"
+@using eMeetup.App.Shared.Services
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+@if (_checkingProfile)
+{
+    <div style="text-align:center; padding:40px;">
+        <p>⏳ Загрузка...</p>
+    </div>
+}
+else
+{
+    <!-- Ваш существующий контент -->
+}
+
+@code {
+    private bool _checkingProfile = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var isAuth = await AuthService.IsAuthenticatedAsync();
+        if (isAuth)
+        {
+            var requiresCompletion = await AuthService.RequiresProfileCompletionAsync();
+            if (requiresCompletion)
+            {
+                Navigation.NavigateTo("/complete-profile", true);
+                return;
+            }
+        }
+        _checkingProfile = false;
+    }
+}

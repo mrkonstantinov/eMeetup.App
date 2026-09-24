@@ -1,0 +1,249 @@
+﻿@page "/activity-instance/{id:int}"
+@using eMeetup.App.Shared.Models
+@using eMeetup.App.Shared.Services
+@using eMeetup.App.Shared.Components
+@inject IActivityService ActivityService
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+@if (_isLoading)
+{
+    <div Style="text-align:center; padding:40px;">
+        <p>⏳ Загрузка...</p>
+    </div>
+}
+else if (_instance == null)
+{
+    <div Style="padding:12px; background:#f8d7da; color:#721c24; border-radius:4px; border:1px solid #f5c6cb;">
+        ❌ Встреча не найдена
+    </div>
+}
+else
+{
+    <div Style="max-width:800px; margin:0 auto;">
+        <!-- Основная информация -->
+        <div Style="background:white; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:hidden; margin-bottom:20px;">
+            @if (!string.IsNullOrEmpty(_template?.ImageUrl))
+            {
+                <img src="@_template.ImageUrl" Style="width:100%; height:300px; object-fit:cover;" />
+            }
+
+            <div Style="padding:24px;">
+                <div Style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div>
+                        <h3 Style="margin:0;">@_template?.Title</h3>
+                        <span Style="display:inline-block; padding:2px 12px; background:#0078D4; color:white; border-radius:4px; font-size:0.8rem; margin-top:8px;">
+                            @_template?.Type.ToString()
+                        </span>
+                        @if (_instance?.Status == "Cancelled")
+                        {
+                            <span Style="display:inline-block; padding:2px 12px; background:#dc3545; color:white; border-radius:4px; font-size:0.8rem; margin-top:8px; margin-left:8px;">
+                                ❌ Отменена
+                            </span>
+                        }
+                    </div>
+                </div>
+
+                @if (_template?.Tags.Any() == true)
+                {
+                    <div Style="display:flex; flex-wrap:wrap; gap:4px; margin:12px 0;">
+                        @foreach (var tag in _template.Tags)
+                        {
+                            <span Style="display:inline-block; padding:4px 12px; background:#0078D4; color:white; border-radius:20px; font-size:0.8rem;">
+                                #@tag
+                            </span>
+                        }
+                    </div>
+                }
+
+                <p Style="margin:12px 0;">@_template?.Description</p>
+
+                <hr />
+
+                <div Style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <strong>🕐 Время</strong>
+                        <p Style="margin:4px 0;">@_instance?.StartTime.ToString("dd.MM.yyyy HH:mm") - @_instance?.EndTime.ToString("HH:mm")</p>
+                    </div>
+                    <div>
+                        <strong>📍 Место</strong>
+                        <p Style="margin:4px 0;">@(_instance?.Location ?? _template?.Location)</p>
+                    </div>
+                    <div>
+                        <strong>👥 Участники</strong>
+                        <p Style="margin:4px 0;">@_instance?.CurrentParticipants / @(_instance?.MaxParticipants ?? _template?.MaxParticipants ?? 1)</p>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_template?.Difficulty))
+                    {
+                        <div>
+                            <strong>📊 Сложность</strong>
+                            <p Style="margin:4px 0;">@_template.Difficulty</p>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(_instance?.Notes))
+                    {
+                        <div Style="grid-column: span 2;">
+                            <strong>📝 Заметки</strong>
+                            <p Style="margin:4px 0;">@_instance.Notes</p>
+                        </div>
+                    }
+                    @if (_instance?.Status == "Cancelled" && !string.IsNullOrEmpty(_instance?.CancellationReason))
+                    {
+                        <div Style="grid-column: span 2;">
+                            <strong>❌ Причина отмены</strong>
+                            <p Style="margin:4px 0; color:#dc3545;">@_instance.CancellationReason</p>
+                        </div>
+                    }
+                </div>
+
+                <div Style="width:100%; height:8px; background:#e9ecef; border-radius:4px; margin:16px 0;">
+                    <div Style="width:@((double)(_instance?.CurrentParticipants ?? 0) / (_instance?.MaxParticipants ?? _template?.MaxParticipants ?? 1) * 100)%; height:100%; background:#0078D4; border-radius:4px;"></div>
+                </div>
+
+                <hr />
+
+                <div Style="display:flex; gap:12px; flex-wrap:wrap;">
+                    @if (_instance?.Status != "Cancelled")
+                    {
+                        @if (_instance?.CurrentParticipants < (_instance?.MaxParticipants ?? _template?.MaxParticipants ?? 1) && _isAuthenticated && !_isParticipating)
+                        {
+                            <button @onclick="HandleJoin" Style="padding:10px 24px; background:#28a745; color:white; border:none; border-radius:4px; cursor:pointer;">
+                                ➕ Присоединиться
+                            </button>
+                        }
+                        else if (_isParticipating)
+                        {
+                            <button @onclick="HandleLeave" Style="padding:10px 24px; background:#dc3545; color:white; border:none; border-radius:4px; cursor:pointer;">
+                                🚪 Выйти
+                            </button>
+                        }
+                        else if (!_isAuthenticated)
+                        {
+                            <a href="/login" Style="display:inline-block; padding:10px 24px; background:#0078D4; color:white; border-radius:4px; text-decoration:none;">
+                                🔑 Войти чтобы присоединиться
+                            </a>
+                        }
+                        else
+                        {
+                            <span Style="display:inline-block; padding:10px 24px; background:#6c757d; color:white; border-radius:4px;">
+                                ❌ Мест нет
+                            </span>
+                        }
+                    }
+
+                    @if (_isOrganizer && _instance?.Status != "Cancelled")
+                    {
+                        <button @onclick="CancelInstance" Style="padding:10px 24px; background:#dc3545; color:white; border:none; border-radius:4px; cursor:pointer;">
+                            ❌ Отменить встречу
+                        </button>
+                    }
+
+                    <a href="/" Style="display:inline-block; padding:10px 24px; border:1px solid #6c757d; color:#6c757d; border-radius:4px; text-decoration:none;">
+                        ← Назад
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Чат -->
+        @if (_isParticipating || _isOrganizer)
+        {
+            <div Style="background:white; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:hidden;">
+                <div Style="padding:16px 24px; background:#f8f9fa; border-bottom:1px solid #dee2e6;">
+                    <h4 Style="margin:0;">💬 Чат участников</h4>
+                </div>
+                @if (_instance != null)
+                {
+                    <ActivityChat InstanceId="@_instance.Id" />
+                }
+            </div>
+        }
+        else if (_isAuthenticated)
+        {
+            <div Style="padding:12px; background:#e9ecef; color:#6c757d; border-radius:8px; text-align:center;">
+                💬 Присоединитесь к мероприятию, чтобы участвовать в чате
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool _isLoading = true;
+    private bool _isAuthenticated;
+    private bool _isParticipating;
+    private bool _isOrganizer;
+    private ActivityInstance? _instance;
+    private ActivityTemplate? _template;
+    private User? _currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+            _currentUser = await AuthService.GetCurrentUserAsync();
+            _instance = await ActivityService.GetInstanceAsync(Id);
+
+            if (_instance != null)
+            {
+                _template = await ActivityService.GetTemplateAsync(_instance.TemplateId);
+            }
+
+            if (_currentUser != null && _instance != null)
+            {
+                _isParticipating = _instance.Participants.Any(p => p.Id == _currentUser.Id);
+                _isOrganizer = _template != null && _template.OrganizerId == _currentUser.Id;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task HandleJoin()
+    {
+        if (_currentUser == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        var result = await ActivityService.JoinInstanceAsync(Id, _currentUser.Id);
+        if (result)
+        {
+            _instance = await ActivityService.GetInstanceAsync(Id);
+            _isParticipating = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleLeave()
+    {
+        if (_currentUser == null) return;
+
+        var result = await ActivityService.LeaveInstanceAsync(Id, _currentUser.Id);
+        if (result)
+        {
+            _instance = await ActivityService.GetInstanceAsync(Id);
+            _isParticipating = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CancelInstance()
+    {
+        var result = await ActivityService.CancelInstanceAsync(Id, "Отменено организатором");
+        if (result)
+        {
+            _instance = await ActivityService.GetInstanceAsync(Id);
+            StateHasChanged();
+        }
+    }
+}

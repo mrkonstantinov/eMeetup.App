@@ -1,0 +1,189 @@
+﻿@using eMeetup.App.Shared.Models
+@inject IAuthService AuthService
+@inject IActivityService ActivityService
+
+<div Style="border:1px solid #dee2e6; border-radius:8px; overflow:hidden; height:100%; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+    @if (!string.IsNullOrEmpty(Instance?.Template?.ImageUrl))
+    {
+        <div Style="width:100%; height:200px; background-image:url(@Instance.Template.ImageUrl); background-size:cover; background-position:center;"></div>
+    }
+
+    <div Style="padding:12px;">
+        <div Style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div Style="flex:1;">
+                <h6 Style="margin:0 0 8px 0;">@Instance?.Template?.Title</h6>
+                <span Style="display:inline-block; padding:2px 8px; background:#0078D4; color:white; border-radius:4px; font-size:0.75rem; margin-bottom:8px;">
+                    @Instance?.Template?.Type.ToString()
+                </span>
+            </div>
+            @if (_isAuthenticated && _template != null)
+            {
+                <div Style="display:flex; gap:4px; flex-shrink:0;">
+                    <!-- Избранное -->
+                    <button @onclick="ToggleFavorite"
+                            Style="background:none; border:none; cursor:pointer; font-size:1.2rem; padding:4px;"
+                            title="@(_isFavorite ? "Убрать из избранного" : "Добавить в избранное")">
+                        @(_isFavorite ? "⭐" : "☆")
+                    </button>
+                    <!-- Подписка -->
+                    <button @onclick="ToggleSubscription"
+                            Style="background:none; border:none; cursor:pointer; font-size:1.2rem; padding:4px;"
+                            title="@(_isSubscribed ? "Отписаться" : "Подписаться")">
+                        @(_isSubscribed ? "🔔" : "🔕")
+                    </button>
+                </div>
+            }
+        </div>
+
+        @if (Instance?.Template?.Tags.Any() == true)
+        {
+            <div Style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">
+                @foreach (var tag in Instance.Template.Tags.Take(3))
+                {
+                    <span Style="display:inline-block; padding:2px 6px; background:#e9ecef; border-radius:4px; font-size:0.7rem; color:#495057;">
+                        #@tag
+                    </span>
+                }
+            </div>
+        }
+
+        <div Style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+            <span>🕐</span>
+            <span>@Instance?.StartTime.ToString("dd.MM.yyyy HH:mm")</span>
+        </div>
+
+        <div Style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+            <span>📍</span>
+            <span>@(Instance?.Location ?? Instance?.Template?.Location)</span>
+        </div>
+
+        <div Style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+            <span>👥</span>
+            <span>@Instance?.CurrentParticipants / @(Instance?.MaxParticipants ?? Instance?.Template?.MaxParticipants)</span>
+        </div>
+
+        @if (Instance?.Status == "Cancelled")
+        {
+            <div Style="padding:4px 8px; background:#f8d7da; color:#721c24; border-radius:4px; font-size:0.8rem; margin-bottom:8px;">
+                ❌ Отменена
+            </div>
+        }
+
+        <div Style="width:100%; height:4px; background-color: #e9ecef; border-radius:4px; overflow:hidden; margin-bottom:8px;">
+            <div Style="width:@((double)(Instance?.CurrentParticipants ?? 0) / (Instance?.MaxParticipants ?? Instance?.Template?.MaxParticipants ?? 1) * 100)%; height:100%; background-color: #0078D4;"></div>
+        </div>
+
+        <div Style="display:flex; flex-wrap:wrap; gap:8px;">
+            <a href="/activity-instance/@Instance?.Id" Style="display:inline-block; padding:4px 12px; border:1px solid #0078D4; color:#0078D4; border-radius:4px; text-decoration:none; font-size:0.85rem;">
+                ℹ️ Подробнее
+            </a>
+
+            @if (Instance?.Status != "Cancelled")
+            {
+                @if (Instance?.CurrentParticipants < (Instance?.MaxParticipants ?? Instance?.Template?.MaxParticipants ?? 1) && !_isParticipating)
+                {
+                    <button @onclick="@OnJoinClicked" Style="display:inline-block; padding:4px 12px; background:#28a745; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.85rem;">
+                        ➕ Присоединиться
+                    </button>
+                }
+                else if (_isParticipating)
+                {
+                    <button @onclick="@OnLeaveClicked" Style="display:inline-block; padding:4px 12px; background:#dc3545; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.85rem;">
+                        🚪 Выйти
+                    </button>
+                }
+                else
+                {
+                    <span Style="display:inline-block; padding:4px 12px; background:#6c757d; color:white; border-radius:4px; font-size:0.85rem;">
+                        ❌ Мест нет
+                    </span>
+                }
+            }
+        </div>
+
+        @if (_isSubscribed)
+        {
+            <div Style="margin-top:8px; padding:4px 8px; background:#d4edda; color:#155724; border-radius:4px; font-size:0.7rem;">
+                🔔 Вы подписаны на обновления
+            </div>
+        }
+        @if (_isFavorite)
+        {
+            <div Style="margin-top:4px; padding:4px 8px; background:#fff3cd; color:#856404; border-radius:4px; font-size:0.7rem;">
+                ⭐ В избранном
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public ActivityInstance? Instance { get; set; }
+    [Parameter] public EventCallback OnJoinClicked { get; set; }
+    [Parameter] public EventCallback OnLeaveClicked { get; set; }
+
+    private bool _isParticipating;
+    private bool _isFavorite;
+    private bool _isSubscribed;
+    private bool _isAuthenticated;
+    private User? _currentUser;
+    private ActivityTemplate? _template;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (_isAuthenticated)
+        {
+            _currentUser = await AuthService.GetCurrentUserAsync();
+
+            if (_currentUser != null && Instance != null)
+            {
+                _isParticipating = Instance.Participants.Any(p => p.Id == _currentUser.Id);
+
+                // Загружаем шаблон
+                _template = await ActivityService.GetTemplateAsync(Instance.TemplateId);
+
+                if (_template != null)
+                {
+                    _isFavorite = await ActivityService.IsFavoriteAsync(_currentUser.Id, _template.Id);
+                    _isSubscribed = await ActivityService.IsSubscribedAsync(_currentUser.Id, _template.Id);
+                }
+            }
+        }
+    }
+
+    private async Task ToggleFavorite()
+    {
+        if (_currentUser == null || _template == null) return;
+
+        if (_isFavorite)
+        {
+            await ActivityService.RemoveFromFavoritesAsync(_currentUser.Id, _template.Id);
+            _isFavorite = false;
+        }
+        else
+        {
+            await ActivityService.AddToFavoritesAsync(_currentUser.Id, _template.Id);
+            _isFavorite = true;
+        }
+        StateHasChanged();
+    }
+
+    private async Task ToggleSubscription()
+    {
+        if (_currentUser == null || _template == null) return;
+
+        if (_isSubscribed)
+        {
+            await ActivityService.UnsubscribeAsync(_currentUser.Id, _template.Id);
+            _isSubscribed = false;
+            // При отписке не удаляем из избранного (пользователь сам решит)
+        }
+        else
+        {
+            await ActivityService.SubscribeAsync(_currentUser.Id, _template.Id);
+            _isSubscribed = true;
+            _isFavorite = true; // Подписка автоматически добавляет в избранное
+        }
+        StateHasChanged();
+    }
+}

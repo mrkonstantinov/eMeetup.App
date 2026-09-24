@@ -1,0 +1,144 @@
+﻿@page "/templates"
+@using eMeetup.App.Shared.Services
+@inject IAuthService AuthService
+@inject IActivityService ActivityService
+
+@if (!_isAuthenticated)
+{
+    <div Style="padding:12px; background:#fff3cd; color:#856404; border-radius:4px; border:1px solid #ffeeba;">
+        ⚠️ Пожалуйста, <a href="/login" Style="color:#0078D4;">войдите</a> для просмотра шаблонов
+    </div>
+    return;
+}
+
+<div>
+    <div Style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h3>📋 Мои шаблоны</h3>
+        <a href="/create-template" Style="display:inline-block; padding:8px 16px; background:#0078D4; color:white; border-radius:4px; text-decoration:none;">
+            📝 Создать шаблон
+        </a>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div Style="text-align:center; padding:40px;">
+            <p>⏳ Загрузка...</p>
+        </div>
+    }
+    else if (!_templates.Any())
+    {
+        <div Style="border:1px solid #dee2e6; border-radius:8px; padding:40px; text-align:center; background:white;">
+            <div Style="font-size:48px;">📝</div>
+            <h4>У вас пока нет шаблонов</h4>
+            <p Style="color:#6c757d;">Создайте шаблон для повторяющихся активностей!</p>
+            <a href="/create-template" Style="display:inline-block; padding:10px 24px; background:#0078D4; color:white; border-radius:4px; text-decoration:none; margin-top:12px;">
+                📝 Создать шаблон
+            </a>
+        </div>
+    }
+    else
+    {
+        <div Style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px;">
+            @foreach (var template in _templates)
+            {
+                <div Style="border:1px solid #dee2e6; border-radius:8px; padding:16px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+                    <div Style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <h5 Style="margin:0;">@template.Title</h5>
+                            <span Style="display:inline-block; padding:2px 8px; background:#0078D4; color:white; border-radius:4px; font-size:0.7rem; margin:8px 0;">
+                                @template.Type.ToString()
+                            </span>
+                        </div>
+                        <div Style="display:flex; gap:4px;">
+                            <a href="/edit-template/@template.Id" Style="display:inline-block; padding:4px 8px; background:#ffc107; color:#333; border-radius:4px; text-decoration:none; font-size:0.8rem;">
+                                ✏️
+                            </a>
+                            <button @onclick="() => DeleteTemplate(template.Id)" Style="padding:4px 8px; background:#dc3545; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.8rem;">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                    <p Style="font-size:0.85rem; color:#6c757d; margin:4px 0;">📍 @template.Location</p>
+                    <p Style="font-size:0.85rem; color:#6c757d; margin:4px 0;">👥 Макс. @template.MaxParticipants участников</p>
+                    @if (template.Tags.Any())
+                    {
+                        <div Style="display:flex; flex-wrap:wrap; gap:4px; margin:8px 0;">
+                            @foreach (var tag in template.Tags.Take(3))
+                            {
+                                <span Style="display:inline-block; padding:2px 8px; background:#e9ecef; border-radius:4px; font-size:0.7rem;">
+                                    #@tag
+                                </span>
+                            }
+                            @if (template.Tags.Count > 3)
+                            {
+                                <span Style="display:inline-block; padding:2px 8px; background:#e9ecef; border-radius:4px; font-size:0.7rem;">
+                                    +@(template.Tags.Count - 3)
+                                </span>
+                            }
+                        </div>
+                    }
+                    <div Style="display:flex; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid #dee2e6;">
+                        <a href="/template/@template.Id" Style="display:inline-block; padding:4px 16px; background:#0078D4; color:white; border-radius:4px; text-decoration:none; font-size:0.85rem;">
+                            📅 Расписание
+                        </a>
+                        <a href="/template/@template.Id/add-schedule" Style="display:inline-block; padding:4px 16px; background:#28a745; color:white; border-radius:4px; text-decoration:none; font-size:0.85rem;">
+                            ➕ Добавить встречу
+                        </a>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private bool _isAuthenticated;
+    private List<ActivityTemplate> _templates = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+            if (_isAuthenticated)
+            {
+                var user = await AuthService.GetCurrentUserAsync();
+                if (user != null)
+                {
+                    _templates = await ActivityService.GetUserTemplatesAsync(user.Id);
+                }
+            }
+        }
+        catch
+        {
+            // Обработка ошибок
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task DeleteTemplate(int templateId)
+    {
+        if (!await ConfirmDelete()) return;
+
+        var result = await ActivityService.DeleteTemplateAsync(templateId);
+        if (result)
+        {
+            var user = await AuthService.GetCurrentUserAsync();
+            if (user != null)
+            {
+                _templates = await ActivityService.GetUserTemplatesAsync(user.Id);
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task<bool> ConfirmDelete()
+    {
+        // В реальном проекте используйте модальное окно
+        return await Task.FromResult(true);
+    }
+}

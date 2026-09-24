@@ -1,0 +1,43 @@
+C:\Users\mrkon\AppData\Local\Android\Sdk\emulator\emulator.exe -avd MAUI_Emulator_API_36 -no-snapshot-load 
+maui android emulator list
+ maui android emulator delete Pixel_8_API_36 
+maui android emulator start MAUI_Emulator_API_36
+maui android emulator stop MAUI_Emulator_API_36
+
+dotnet build -f:net10.0-android -t:Run
+
+
+dotnet clean
+Remove-Item -Recurse -Force bin, obj
+dotnet restore
+dotnet build -f:net10.0-android -t:Run
+
+# Создать эмулятор с автоматическим выбором системного образа
+maui android emulator create Pixel_8_API_36
+
+# Создать с указанием конкретного образа
+maui android emulator create Pixel_8_API_36 --package "system-images;android-36;google_apis;x86_64"
+
+# Создать с указанием устройства и образа
+maui android emulator create Pixel_8_API_36 --device "pixel_8" --package "system-images;android-36;google_apis;x86_64"
+
+# Принудительно перезаписать существующий эмулятор
+maui android emulator create Pixel_8_API_36 --force
+
+# С выводом подробной информации
+maui android emulator create Pixel_8_API_36 --verbose
+
+# Посмотреть все доступные устройства
+maui android emulator list --devices
+
+# Посмотреть доступные системные образы
+maui android emulator list --packages
+
+# Удалить эмулятор
+maui android emulator delete Pixel_8_API_36
+
+# Запустить эмулятор
+maui android emulator start Pixel_8_API_36
+
+# Показать все эмуляторы
+maui android emulator list

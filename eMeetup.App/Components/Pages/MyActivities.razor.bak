@@ -1,0 +1,146 @@
+﻿@page "/my-activities"
+@using eMeetup.App.Shared.Services
+@using eMeetup.App.Shared.Components
+@inject IAuthService AuthService
+@inject IActivityService ActivityService
+
+@if (!_isAuthenticated)
+{
+    <div Style="padding:12px; background:#fff3cd; color:#856404; border-radius:4px; border:1px solid #ffeeba;">
+        ⚠️ Пожалуйста, <a href="/login" Style="color:#0078D4;">войдите</a> для просмотра своих встреч
+    </div>
+    return;
+}
+
+<div>
+    <h3>📋 Мои встречи</h3>
+    <p Style="color:#6c757d;">Встречи, которые вы создали или в которых участвуете</p>
+
+    @if (_isLoading)
+    {
+        <div Style="text-align:center; padding:40px;">
+            <p>⏳ Загрузка...</p>
+        </div>
+    }
+    else if (!_myInstances.Any())
+    {
+        <div Style="border:1px solid #dee2e6; border-radius:8px; padding:20px; text-align:center; background:white;">
+            <div Style="font-size:48px;">📝</div>
+            <h5>У вас пока нет встреч</h5>
+            <p Style="color:#6c757d;">Создайте шаблон и добавьте встречи!</p>
+            <a href="/create-template" Style="display:inline-block; padding:8px 16px; background:#0078D4; color:white; border-radius:4px; text-decoration:none;">
+                📝 Создать шаблон
+            </a>
+        </div>
+    }
+    else
+    {
+        <div Style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+            @foreach (var instance in _myInstances.OrderBy(i => i.StartTime))
+            {
+                <ActivityCard Instance="instance" OnJoinClicked="@(() => JoinInstance(instance.Id))" OnLeaveClicked="@(() => LeaveInstance(instance.Id))" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private bool _isAuthenticated;
+    private List<ActivityInstance> _myInstances = new();
+    private User? _currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+            if (_isAuthenticated)
+            {
+                _currentUser = await AuthService.GetCurrentUserAsync();
+                if (_currentUser != null)
+                {
+                    var allInstances = await ActivityService.GetInstancesAsync();
+
+                    // Получаем все шаблоны для проверки организатора
+                    var allTemplates = await ActivityService.GetTemplatesAsync();
+
+                    _myInstances = allInstances
+                                            .Where(i =>
+                                                // Пользователь является организатором (через шаблон)
+                                                allTemplates.Any(t => t.Id == i.TemplateId && t.OrganizerId == _currentUser.Id) ||
+                                                // Или пользователь участвует во встрече
+                                                i.Participants.Any(p => p.Id == _currentUser.Id))
+                                            .OrderBy(i => i.StartTime)
+                                            .ToList();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error loading instances: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task JoinInstance(int instanceId)
+    {
+        try
+        {
+            if (_currentUser == null) return;
+
+            var result = await ActivityService.JoinInstanceAsync(instanceId, _currentUser.Id);
+            if (result)
+            {
+                // Обновляем список
+                var allInstances = await ActivityService.GetInstancesAsync();
+                var allTemplates = await ActivityService.GetTemplatesAsync();
+
+                _myInstances = allInstances
+                                    .Where(i =>
+                                        allTemplates.Any(t => t.Id == i.TemplateId && t.OrganizerId == _currentUser.Id) ||
+                                        i.Participants.Any(p => p.Id == _currentUser.Id))
+                                    .OrderBy(i => i.StartTime)
+                                    .ToList();
+
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error joining instance: {ex.Message}");
+        }
+    }
+
+    private async Task LeaveInstance(int instanceId)
+    {
+        try
+        {
+            if (_currentUser == null) return;
+
+            var result = await ActivityService.LeaveInstanceAsync(instanceId, _currentUser.Id);
+            if (result)
+            {
+                // Обновляем список
+                var allInstances = await ActivityService.GetInstancesAsync();
+                var allTemplates = await ActivityService.GetTemplatesAsync();
+
+                _myInstances = allInstances
+                                    .Where(i =>
+                                        allTemplates.Any(t => t.Id == i.TemplateId && t.OrganizerId == _currentUser.Id) ||
+                                        i.Participants.Any(p => p.Id == _currentUser.Id))
+                                    .OrderBy(i => i.StartTime)
+                                    .ToList();
+
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error leaving instance: {ex.Message}");
+        }
+    }
+}

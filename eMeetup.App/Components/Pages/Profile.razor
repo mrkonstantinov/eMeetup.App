@@ -1,0 +1,226 @@
+﻿@page "/profile"
+@using eMeetup.App.Shared.Models
+@using eMeetup.App.Shared.Services
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+@if (_isLoading)
+{
+    <div Style="text-align:center; padding:40px;">
+        <p>⏳ Загрузка профиля...</p>
+    </div>
+}
+else if (_user == null)
+{
+    <div Style="padding:12px; background:#fff3cd; color:#856404; border-radius:4px;">
+        ⚠️ Профиль не найден. <a href="/login" Style="color:#0078D4;">Войдите</a> или 
+        <a href="/complete-profile" Style="color:#0078D4;">заполните профиль</a>
+    </div>
+}
+else
+{
+    <div Style="max-width:800px; margin:0 auto;">
+        <!-- Шапка профиля -->
+        <div Style="background:linear-gradient(135deg, #0078D4, #004578); padding:30px 24px; border-radius:8px 8px 0 0; color:white; text-align:center;">
+            @if (!string.IsNullOrEmpty(_user.Profile?.AvatarUrl))
+            {
+                <img src="@_user.Profile.AvatarUrl" 
+                     Style="width:120px; height:120px; border-radius:50%; object-fit:cover; border:4px solid white; margin-bottom:12px;" />
+            }
+            else
+            {
+                <div Style="width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; margin:0 auto 12px; font-size:48px;">
+                    👤
+                </div>
+            }
+            <h2 Style="margin:0;">@_user.DisplayName</h2>
+            <p Style="margin:4px 0 0 0; opacity:0.9;">@_user.Email</p>
+            
+            <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:8px;">
+                <span style="display:inline-block; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:0.85rem;">
+                    @_user.Status
+                </span>
+                @if (_user.ProfileCompleted)
+                {
+                    <span style="display:inline-block; padding:4px 12px; background:rgba(40,167,69,0.8); border-radius:20px; font-size:0.85rem;">
+                        ✅ Профиль заполнен
+                    </span>
+                }
+                @if (_user.Profile?.Age > 0)
+                {
+                    <span style="display:inline-block; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:0.85rem;">
+                        🎂 @_user.Profile.Age лет
+                    </span>
+                }
+                @if (!string.IsNullOrEmpty(_user.Profile?.City))
+                {
+                    <span style="display:inline-block; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:0.85rem;">
+                        📍 @_user.Profile.City@(!string.IsNullOrEmpty(_user.Profile.Country) ? ", " + _user.Profile.Country : "")
+                    </span>
+                }
+            </div>
+        </div>
+
+        <!-- Контент -->
+        <div style="background:white; padding:24px; border-radius:0 0 8px 8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+            
+            @if (!string.IsNullOrEmpty(_user.Profile?.Bio))
+            {
+                <div style="margin-bottom:20px;">
+                    <h4 style="margin:0 0 8px 0;">📝 О себе</h4>
+                    <p style="margin:0; color:#495057;">@_user.Profile.Bio</p>
+                </div>
+            }
+
+            <!-- Контакты -->
+            @if (!string.IsNullOrEmpty(_user.Profile?.Phone) 
+                || !string.IsNullOrEmpty(_user.Profile?.Telegram) 
+                || !string.IsNullOrEmpty(_user.Profile?.Instagram))
+            {
+                <div style="margin-bottom:20px;">
+                    <h4 style="margin:0 0 8px 0;">📞 Контакты</h4>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px;">
+                        @if (!string.IsNullOrEmpty(_user.Profile.Phone))
+                        {
+                            <div>📱 <strong>Телефон:</strong> @_user.Profile.Phone</div>
+                        }
+                        @if (!string.IsNullOrEmpty(_user.Profile.Telegram))
+                        {
+                            <div>✈️ <strong>Telegram:</strong> @_user.Profile.Telegram</div>
+                        }
+                        @if (!string.IsNullOrEmpty(_user.Profile.Instagram))
+                        {
+                            <div>📷 <strong>Instagram:</strong> @_user.Profile.Instagram</div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Локация -->
+            @if (!string.IsNullOrEmpty(_user.Profile?.City) 
+                || !string.IsNullOrEmpty(_user.Profile?.Country) 
+                || !string.IsNullOrEmpty(_user.Profile?.TimeZone))
+            {
+                <div style="margin-bottom:20px;">
+                    <h4 style="margin:0 0 8px 0;">📍 Локация</h4>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px;">
+                        @if (!string.IsNullOrEmpty(_user.Profile.City))
+                        {
+                            <div>🏙️ <strong>Город:</strong> @_user.Profile.City</div>
+                        }
+                        @if (!string.IsNullOrEmpty(_user.Profile.Country))
+                        {
+                            <div>🌍 <strong>Страна:</strong> @_user.Profile.Country</div>
+                        }
+                        @if (!string.IsNullOrEmpty(_user.Profile.TimeZone))
+                        {
+                            <div>🕐 <strong>Часовой пояс:</strong> @_user.Profile.TimeZone</div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Языки -->
+            @if (_user.Profile?.Languages != null && _user.Profile.Languages.Any())
+            {
+                <div style="margin-bottom:20px;">
+                    <h4 style="margin:0 0 8px 0;">🗣️ Языки</h4>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                        @foreach (var lang in _user.Profile.Languages)
+                        {
+                            <span style="display:inline-block; padding:4px 12px; background:#e9ecef; border-radius:20px; font-size:0.85rem;">
+                                @(lang?.ToUpperInvariant() ?? "")
+                            </span>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Интересы -->
+            @if (_user.Profile?.Interests != null && _user.Profile.Interests.Any())
+            {
+                <div style="margin-bottom:20px;">
+                    <h4 style="margin:0 0 8px 0;">⭐ Интересы</h4>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                        @foreach (var interest in _user.Profile.Interests)
+                        {
+                            <span style="display:inline-block; padding:4px 12px; background:#0078D4; color:white; border-radius:20px; font-size:0.85rem;">
+                                #@interest
+                            </span>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Действия -->
+            <div style="display:flex; gap:12px; margin-top:24px; padding-top:16px; border-top:1px solid #dee2e6; flex-wrap:wrap;">
+                <a href="/edit-profile" 
+                   style="flex:1; min-width:150px; padding:10px; background:#0078D4; color:white; border-radius:4px; text-decoration:none; text-align:center;">
+                    ✏️ Редактировать профиль
+                </a>
+                <button @onclick="RefreshProfile" 
+                        style="flex:1; min-width:150px; padding:10px; background:#28a745; color:white; border:none; border-radius:4px; cursor:pointer;">
+                    🔄 Обновить
+                </button>
+                <button @onclick="HandleLogout" 
+                        style="flex:1; min-width:150px; padding:10px; background:#dc3545; color:white; border:none; border-radius:4px; cursor:pointer;">
+                    🚪 Выйти
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _isLoading = true;
+    private User? _user;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProfile();
+    }
+
+    private async Task LoadProfile()
+    {
+        _isLoading = true;
+        try
+        {
+            // Быстро: из локального кэша
+            _user = await AuthService.GetCurrentUserAsync();
+
+            // Актуально: с сервера
+            try
+            {
+                var freshUser = await AuthService.GetProfileAsync();
+                if (freshUser != null)
+                {
+                    _user = freshUser;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"API profile error: {ex.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Profile load error: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task RefreshProfile()
+    {
+        await LoadProfile();
+        StateHasChanged();
+    }
+
+    private async Task HandleLogout()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login", true);
+    }
+}

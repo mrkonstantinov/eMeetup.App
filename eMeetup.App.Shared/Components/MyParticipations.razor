@@ -1,0 +1,109 @@
+﻿@using eMeetup.App.Shared.Models
+@using eMeetup.App.Shared.Services
+@inject IAuthService AuthService
+@inject IActivityService ActivityService
+
+@if (_isLoading)
+{
+    <div Style="text-align:center; padding:40px;">
+        <p>⏳ Загрузка...</p>
+    </div>
+}
+else if (!_isAuthenticated)
+{
+    <div Style="padding:12px; background:#fff3cd; color:#856404; border-radius:4px; border:1px solid #ffeeba;">
+        ⚠️ Пожалуйста, <a href="/login" Style="color:#0078D4;">войдите</a> для просмотра своих активностей
+    </div>
+}
+else if (!_participations.Any())
+{
+    <div Style="border:1px solid #dee2e6; border-radius:8px; padding:20px; text-align:center; background:white;">
+        <div Style="font-size:48px;">🎯</div>
+        <h5>Вы пока нигде не участвуете</h5>
+        <p Style="color:#6c757d;">
+            Найдите активность и присоединяйтесь!
+        </p>
+        <a href="/" Style="display:inline-block; padding:8px 16px; background:#0078D4; color:white; border-radius:4px; text-decoration:none;">
+            🏠 Посмотреть активности
+        </a>
+    </div>
+}
+else
+{
+    <div>
+        <div Style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div>
+                <span Style="display:inline-block; padding:4px 12px; background:#28a745; color:white; border-radius:4px;">
+                    🎯 Участвую: @_participations.Count
+                </span>
+            </div>
+        </div>
+
+        <div Style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+            @foreach (var instance in _participations)
+            {
+                <ActivityCard Instance="instance"
+                              OnLeaveClicked="@(() => LeaveInstance(instance.Id))"
+                              OnJoinClicked="@(() => {})" />
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private bool _isLoading = true;
+    private bool _isAuthenticated;
+    private List<ActivityInstance> _participations = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+            if (_isAuthenticated)
+            {
+                var user = await AuthService.GetCurrentUserAsync();
+                if (user != null)
+                {
+                    var allInstances = await ActivityService.GetInstancesAsync();
+                    _participations = allInstances
+                        .Where(i => i.Participants.Any(p => p.Id == user.Id))
+                        .OrderBy(i => i.StartTime)
+                        .ToList();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error loading participations: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LeaveInstance(int instanceId)
+    {
+        try
+        {
+            var user = await AuthService.GetCurrentUserAsync();
+            if (user == null) return;
+
+            var result = await ActivityService.LeaveInstanceAsync(instanceId, user.Id);
+            if (result)
+            {
+                var allInstances = await ActivityService.GetInstancesAsync();
+                _participations = allInstances
+                    .Where(i => i.Participants.Any(p => p.Id == user.Id))
+                    .OrderBy(i => i.StartTime)
+                    .ToList();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error leaving instance: {ex.Message}");
+        }
+    }
+}

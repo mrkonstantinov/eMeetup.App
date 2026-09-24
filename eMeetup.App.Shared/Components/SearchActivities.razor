@@ -1,0 +1,162 @@
+﻿@using eMeetup.App.Shared.Models
+@using eMeetup.App.Shared.Services
+@inject IAuthService AuthService
+@inject IActivityService ActivityService
+@inject NavigationManager Navigation
+
+<div Style="margin-bottom:20px;">
+    <!-- Поисковая строка -->
+    <div Style="display:flex; gap:12px; margin-bottom:12px;">
+        <input @bind="_searchQuery"
+               placeholder="🔍 Поиск по названию, описанию, месту..."
+               Style="flex:1; padding:10px; border:1px solid #ced4da; border-radius:4px; font-size:14px;" />
+        <button @onclick="Search" Style="padding:10px 24px; background:#0078D4; color:white; border:none; border-radius:4px; cursor:pointer;">
+            Найти
+        </button>
+    </div>
+
+    <!-- Фильтры -->
+    <div Style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+        <div>
+            <label Style="font-size:0.85rem; display:block; margin-bottom:2px;">Тип</label>
+            <select @bind="_selectedType" Style="padding:6px 12px; border:1px solid #ced4da; border-radius:4px;">
+                <option value="">Все типы</option>
+                <option value="Cycling">🚴 Вело</option>
+                <option value="Hiking">🥾 Поход</option>
+                <option value="Bar">🍺 Бар</option>
+                <option value="Coffee">☕ Кофе</option>
+                <option value="BoardGames">🎲 Настолки</option>
+                <option value="Other">📌 Другое</option>
+            </select>
+        </div>
+
+        <div>
+            <label Style="font-size:0.85rem; display:block; margin-bottom:2px;">Теги</label>
+            <input @bind="_tagsInput"
+                   placeholder="тег1, тег2"
+                   Style="padding:6px 12px; border:1px solid #ced4da; border-radius:4px; width:150px;" />
+        </div>
+
+        <div>
+            <label Style="font-size:0.85rem; display:block; margin-bottom:2px;">С</label>
+            <input type="date"
+                   value="@_fromDate?.ToString("yyyy-MM-dd")"
+                   @oninput="(e) => _fromDate = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString())"
+                   Style="padding:6px 12px; border:1px solid #ced4da; border-radius:4px;" />
+        </div>
+
+        <div>
+            <label Style="font-size:0.85rem; display:block; margin-bottom:2px;">По</label>
+            <input type="date"
+                   value="@_toDate?.ToString("yyyy-MM-dd")"
+                   @oninput="(e) => _toDate = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString())"
+                   Style="padding:6px 12px; border:1px solid #ced4da; border-radius:4px;" />
+        </div>
+
+        <button @onclick="ClearFilters" Style="padding:6px 16px; background:#6c757d; color:white; border:none; border-radius:4px; cursor:pointer; align-self:flex-end;">
+            ✕ Сбросить
+        </button>
+    </div>
+
+    <!-- Результаты -->
+    <div>
+        @if (_isLoading)
+        {
+            <div Style="text-align:center; padding:20px;">
+                <p>⏳ Поиск...</p>
+            </div>
+        }
+        else if (!_results.Any())
+        {
+            <div Style="border:1px solid #dee2e6; border-radius:8px; padding:20px; text-align:center; background:white;">
+                <div Style="font-size:48px;">🔍</div>
+                <h5>Ничего не найдено</h5>
+                <p Style="color:#6c757d;">Попробуйте изменить параметры поиска</p>
+            </div>
+        }
+        else
+        {
+            <div Style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+                @foreach (var instance in _results)
+                {
+                    <ActivityCard Instance="instance" OnJoinClicked="@(() => JoinInstance(instance.Id))" />
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private bool _isLoading;
+    private string _searchQuery = string.Empty;
+    private string _tagsInput = string.Empty;
+    private DateTime? _fromDate;
+    private DateTime? _toDate;
+    private ActivityType? _selectedType;
+    private List<ActivityInstance> _results = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Search();
+    }
+
+    private async Task Search()
+    {
+        _isLoading = true;
+        try
+        {
+            var tags = string.IsNullOrWhiteSpace(_tagsInput)
+                ? null
+                : _tagsInput.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(t => t.Trim())
+                            .ToList();
+
+            var from = _fromDate;
+            var to = _toDate?.AddDays(1);
+
+            _results = await ActivityService.SearchInstancesAsync(_searchQuery, tags, _selectedType, from, to);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Search error: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ClearFilters()
+    {
+        _searchQuery = string.Empty;
+        _tagsInput = string.Empty;
+        _fromDate = null;
+        _toDate = null;
+        _selectedType = null;
+        Search();
+    }
+
+    private async Task JoinInstance(int instanceId)
+    {
+        try
+        {
+            var user = await AuthService.GetCurrentUserAsync();
+            if (user == null)
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            var result = await ActivityService.JoinInstanceAsync(instanceId, user.Id);
+            if (result)
+            {
+                await Search();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Join error: {ex.Message}");
+        }
+    }
+}
